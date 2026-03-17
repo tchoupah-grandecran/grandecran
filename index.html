@@ -13,17 +13,116 @@
     html, body {
       height: 100%; width: 100%;
       background: #08090F;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       font-family: -apple-system, sans-serif;
+      color: #fff;
+      overflow: hidden;
     }
-    .loader {
+
+    /* ── Écran d'installation ── */
+    .install-screen {
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 40px 32px;
+      gap: 0;
+      text-align: center;
+    }
+
+    .install-logo {
+      font-size: 22px;
+      font-weight: 800;
+      color: #D4AF37;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .install-tagline {
+      font-size: 13px;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 48px;
+      letter-spacing: 0.03em;
+    }
+
+    .install-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+      max-width: 300px;
+      margin-bottom: 48px;
+    }
+
+    .install-step {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      text-align: left;
+    }
+
+    .step-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      background: rgba(212,175,55,0.12);
+      border: 1px solid rgba(212,175,55,0.25);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 20px;
+    }
+
+    .step-text strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+
+    .step-text span {
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+    }
+
+    .install-arrow {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      animation: bounce 1.5s ease-in-out infinite;
+    }
+
+    .install-arrow span {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.04em;
+    }
+
+    .install-arrow svg {
+      width: 24px; height: 24px;
+      stroke: #D4AF37;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50%       { transform: translateX(-50%) translateY(6px); }
+    }
+
+    /* ── Écran de chargement (après installation) ── */
+    .loading-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
       gap: 20px;
     }
+
     .spinner {
       width: 40px; height: 40px;
       border: 3px solid rgba(212,175,55,0.2);
@@ -31,28 +130,80 @@
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    .logo-text {
-      font-size: 18px;
-      font-weight: 700;
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-size: 15px;
+      font-weight: 600;
       color: #D4AF37;
-      letter-spacing: 0.05em;
     }
   </style>
 </head>
 <body>
-  <div class="loader">
-    <div class="spinner"></div>
-    <div class="logo-text">Grand Écran</div>
+
+  <!-- Affiché dans Safari : instructions d'installation -->
+  <div class="install-screen" id="install-screen">
+    <div class="install-logo">Grand Écran</div>
+    <div class="install-tagline">Ton journal de cinéma</div>
+
+    <div class="install-steps">
+      <div class="install-step">
+        <div class="step-icon">1</div>
+        <div class="step-text">
+          <strong>Appuie sur Partager</strong>
+          <span>Le bouton ⎋ en bas de Safari</span>
+        </div>
+      </div>
+      <div class="install-step">
+        <div class="step-icon">2</div>
+        <div class="step-text">
+          <strong>Sur l'écran d'accueil</strong>
+          <span>Fais défiler et choisis cette option</span>
+        </div>
+      </div>
+      <div class="install-step">
+        <div class="step-icon">3</div>
+        <div class="step-text">
+          <strong>Ouvre l'app installée</strong>
+          <span>L'app se lancera en plein écran</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="install-arrow">
+      <span>Bouton Partager</span>
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12l7 7 7-7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
   </div>
+
+  <!-- Affiché en mode web app : spinner puis redirection -->
+  <div class="loading-screen" id="loading-screen">
+    <div class="spinner"></div>
+    <div class="loading-text">Grand Écran</div>
+  </div>
+
   <script>
-    // Petite pause pour que iOS enregistre bien les metas,
-    // puis redirige vers l'app GAS
-    setTimeout(function() {
-      window.location.replace('https://script.google.com/macros/s/AKfycbw7HsfZuBeKWpisGDTSOcsy8BjagnTz33HLx6GA_EJ6Yu0wpqe9Yp57MevPBXfUpbWz/exec');
-    }, 800);
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbw7HsfZuBeKWpisGDTSOcsy8BjagnTz33HLx6GA_EJ6Yu0wpqe9Yp57MevPBXfUpbWz/exec';
+
+    // Détecte si lancé depuis l'écran d'accueil (mode web app)
+    const isInstalled = window.navigator.standalone === true;
+
+    if (isInstalled) {
+      // Mode web app : affiche le spinner et redirige
+      document.getElementById('install-screen').style.display = 'none';
+      document.getElementById('loading-screen').style.display = 'flex';
+      setTimeout(function() {
+        window.location.replace(GAS_URL);
+      }, 600);
+    } else {
+      // Mode Safari : affiche les instructions, pas de redirection
+      document.getElementById('install-screen').style.display = 'flex';
+      document.getElementById('loading-screen').style.display = 'none';
+    }
   </script>
+
 </body>
 </html>
