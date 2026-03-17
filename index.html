@@ -1,209 +1,286 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Grand Écran</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Grand Écran">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#08090F">
+  <meta name="apple-mobile-web-app-title" content="Grand Ecran">
+  <meta name="theme-color" content="#000000">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>Grand Ecran</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     html, body {
-      height: 100%; width: 100%;
-      background: #08090F;
-      font-family: -apple-system, sans-serif;
-      color: #fff;
+      width: 100%; height: 100%;
+      background: #000;
       overflow: hidden;
+      font-family: -apple-system, sans-serif;
     }
 
-    /* ── Écran d'installation ── */
-    .install-screen {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      padding: 40px 32px;
-      gap: 0;
-      text-align: center;
+    /* Safe area en CSS — fonctionne ici car on est top-level */
+    :root {
+      --safe-top:    env(safe-area-inset-top,    0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
 
-    .install-logo {
-      font-size: 22px;
-      font-weight: 800;
-      color: #D4AF37;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-    }
-
-    .install-tagline {
-      font-size: 13px;
-      color: rgba(255,255,255,0.45);
-      margin-bottom: 48px;
-      letter-spacing: 0.03em;
-    }
-
-    .install-steps {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      width: 100%;
-      max-width: 300px;
-      margin-bottom: 48px;
-    }
-
-    .install-step {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      text-align: left;
-    }
-
-    .step-icon {
-      width: 44px; height: 44px;
-      border-radius: 12px;
-      background: rgba(212,175,55,0.12);
-      border: 1px solid rgba(212,175,55,0.25);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      font-size: 20px;
-    }
-
-    .step-text strong {
-      display: block;
-      font-size: 14px;
-      font-weight: 600;
-      color: #fff;
-      margin-bottom: 2px;
-    }
-
-    .step-text span {
-      font-size: 12px;
-      color: rgba(255,255,255,0.45);
-    }
-
-    .install-arrow {
+    /* Ecran de chargement affiché pendant la vérif OAuth */
+    #loading {
       position: fixed;
-      bottom: 28px;
-      left: 50%;
-      transform: translateX(-50%);
+      inset: 0;
+      background: #000;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
-      animation: bounce 1.5s ease-in-out infinite;
-    }
-
-    .install-arrow span {
-      font-size: 12px;
-      color: rgba(255,255,255,0.5);
-      letter-spacing: 0.04em;
-    }
-
-    .install-arrow svg {
-      width: 24px; height: 24px;
-      stroke: #D4AF37;
-    }
-
-    @keyframes bounce {
-      0%, 100% { transform: translateX(-50%) translateY(0); }
-      50%       { transform: translateX(-50%) translateY(6px); }
-    }
-
-    /* ── Écran de chargement (après installation) ── */
-    .loading-screen {
-      display: none;
-      flex-direction: column;
-      align-items: center;
       justify-content: center;
-      height: 100%;
       gap: 20px;
+      z-index: 100;
+      padding-top: var(--safe-top);
     }
 
-    .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid rgba(212,175,55,0.2);
-      border-top-color: #D4AF37;
+    #loading .logo {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+
+    #loading .spinner {
+      width: 24px; height: 24px;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-top-color: #fff;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .loading-text {
+    /* Bouton auth affiché si besoin de se connecter */
+    #auth-screen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      z-index: 100;
+      padding: var(--safe-top) 32px var(--safe-bottom);
+    }
+
+    #auth-screen .logo {
+      font-size: 32px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    #auth-screen p {
+      color: rgba(255,255,255,0.6);
       font-size: 15px;
+      text-align: center;
+    }
+
+    #auth-btn {
+      padding: 14px 32px;
+      background: #fff;
+      color: #000;
+      border: none;
+      border-radius: 50px;
+      font-size: 16px;
       font-weight: 600;
-      color: #D4AF37;
+      cursor: pointer;
+      font-family: -apple-system, sans-serif;
+    }
+
+    /* L'iframe — masquée jusqu'à auth confirmée */
+    #appFrame {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      border: none;
+      background: #000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    #appFrame.ready {
+      opacity: 1;
+      pointer-events: auto;
     }
   </style>
 </head>
 <body>
 
-  <!-- Affiché dans Safari : instructions d'installation -->
-  <div class="install-screen" id="install-screen">
-    <div class="install-logo">Grand Écran</div>
-    <div class="install-tagline">Ton journal de cinéma</div>
-
-    <div class="install-steps">
-      <div class="install-step">
-        <div class="step-icon">1</div>
-        <div class="step-text">
-          <strong>Appuie sur Partager</strong>
-          <span>Le bouton ⎋ en bas de Safari</span>
-        </div>
-      </div>
-      <div class="install-step">
-        <div class="step-icon">2</div>
-        <div class="step-text">
-          <strong>Sur l'écran d'accueil</strong>
-          <span>Fais défiler et choisis cette option</span>
-        </div>
-      </div>
-      <div class="install-step">
-        <div class="step-icon">3</div>
-        <div class="step-text">
-          <strong>Ouvre l'app installée</strong>
-          <span>L'app se lancera en plein écran</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="install-arrow">
-      <span>Bouton Partager</span>
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M12 5v14M5 12l7 7 7-7" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </div>
-  </div>
-
-  <!-- Affiché en mode web app : spinner puis redirection -->
-  <div class="loading-screen" id="loading-screen">
+  <!-- Ecran de chargement -->
+  <div id="loading">
+    <div class="logo">GRAND ECRAN</div>
     <div class="spinner"></div>
-    <div class="loading-text">Grand Écran</div>
   </div>
+
+  <!-- Ecran auth (si pas de session) -->
+  <div id="auth-screen">
+    <div class="logo">GRAND ECRAN</div>
+    <p>Connecte-toi avec ton compte Google pour continuer</p>
+    <button id="auth-btn">Se connecter avec Google</button>
+  </div>
+
+  <!-- L'app GAS -->
+  <iframe
+    id="appFrame"
+    allow="camera; microphone"
+    allowfullscreen
+  ></iframe>
 
   <script>
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbw7HsfZuBeKWpisGDTSOcsy8BjagnTz33HLx6GA_EJ6Yu0wpqe9Yp57MevPBXfUpbWz/exec';
+    var GAS_URL = 'https://script.google.com/macros/s/AKfycbxJ_qfjBqSoHjG3NfFWEgN3e2ch59uIC8rdrbSz2eY/dev';
+    var authPopup = null;
+    var authCheckTimeout = null;
 
-    // Détecte si lancé depuis l'écran d'accueil (mode web app)
-    const isInstalled = window.navigator.standalone === true;
+    // ── Mesure et envoi des safe areas à l'iframe ──────────────
+    function sendSafeAreas() {
+      var probe = document.createElement('div');
+      probe.style.cssText = [
+        'position:fixed',
+        'top:env(safe-area-inset-top,0px)',
+        'left:env(safe-area-inset-left,0px)',
+        'right:env(safe-area-inset-right,0px)',
+        'bottom:env(safe-area-inset-bottom,0px)',
+        'width:0;height:0;pointer-events:none;visibility:hidden'
+      ].join(';');
+      document.body.appendChild(probe);
+      var s = window.getComputedStyle(probe);
+      var areas = {
+        type:   'GRAND_ECRAN_SAFE_AREAS',
+        top:    parseInt(s.top)    || 0,
+        left:   parseInt(s.left)   || 0,
+        right:  parseInt(s.right)  || 0,
+        bottom: parseInt(s.bottom) || 0
+      };
+      document.body.removeChild(probe);
 
-    if (isInstalled) {
-      // Mode web app : affiche le spinner et redirige
-      document.getElementById('install-screen').style.display = 'none';
-      document.getElementById('loading-screen').style.display = 'flex';
-      setTimeout(function() {
-        window.location.replace(GAS_URL);
-      }, 600);
-    } else {
-      // Mode Safari : affiche les instructions, pas de redirection
-      document.getElementById('install-screen').style.display = 'flex';
-      document.getElementById('loading-screen').style.display = 'none';
+      var frame = document.getElementById('appFrame');
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.postMessage(areas, '*');
+      }
     }
-  </script>
 
+    // ── Afficher l'app une fois prête ──────────────────────────
+    function showApp() {
+      document.getElementById('loading').style.display     = 'none';
+      document.getElementById('auth-screen').style.display = 'none';
+      var frame = document.getElementById('appFrame');
+      frame.classList.add('ready');
+      // Envoyer les safe areas après chargement
+      setTimeout(sendSafeAreas, 500);
+      setTimeout(sendSafeAreas, 1500); // retry
+    }
+
+    // ── Lancer le flow OAuth dans un popup ────────────────────
+    // Sur iOS standalone, window.open ouvre dans Safari
+    // puis revient au PWA une fois l'auth terminée
+    function startAuth() {
+      document.getElementById('loading').style.display     = 'none';
+      document.getElementById('auth-screen').style.display = 'flex';
+    }
+
+    function openAuthPopup() {
+      // Ouvrir l'URL GAS directement — GAS va faire son OAuth
+      // puis rediriger vers l'app. On écoute via postMessage le signal de retour.
+      authPopup = window.open(
+        GAS_URL,
+        'gasAuth',
+        'width=400,height=600'
+      );
+
+      // Sur iOS standalone, window.open ouvre Safari
+      // L'utilisateur s'authentifie, puis revient manuellement
+      // On poll si la popup est fermée pour recharger l'iframe
+      var pollTimer = setInterval(function() {
+        if (authPopup && authPopup.closed) {
+          clearInterval(pollTimer);
+          // Popup fermée → tenter de charger l'iframe
+          loadApp();
+        }
+      }, 500);
+    }
+
+    // ── Charger l'iframe GAS ──────────────────────────────────
+    function loadApp() {
+      document.getElementById('loading').style.display = 'flex';
+      document.getElementById('auth-screen').style.display = 'none';
+
+      var frame = document.getElementById('appFrame');
+      frame.classList.remove('ready');
+
+      // L'iframe charge l'app — si auth OK, GAS sert directement l'app
+      // Si auth KO, GAS redirige en interne (dans l'iframe, pas top-level)
+      frame.src = GAS_URL;
+
+      frame.onload = function() {
+        // Délai pour laisser GAS rendre son contenu
+        setTimeout(function() {
+          showApp();
+        }, 800);
+      };
+
+      // Fallback si onload ne se déclenche pas
+      setTimeout(function() {
+        if (!frame.classList.contains('ready')) {
+          showApp();
+        }
+      }, 4000);
+    }
+
+    // ── Ecouter les messages de l'iframe GAS ─────────────────
+    window.addEventListener('message', function(event) {
+      if (!event.data || !event.data.type) return;
+
+      switch(event.data.type) {
+        // L'iframe GAS signale que l'auth est OK
+        case 'GAS_AUTH_OK':
+          showApp();
+          break;
+
+        // L'iframe GAS signale qu'elle a besoin d'auth
+        case 'GAS_NEED_AUTH':
+          startAuth();
+          break;
+
+        // L'iframe GAS demande les safe areas (optionnel)
+        case 'GRAND_ECRAN_REQUEST_SAFE_AREAS':
+          sendSafeAreas();
+          break;
+      }
+    });
+
+    // ── Bouton de connexion ───────────────────────────────────
+    document.getElementById('auth-btn').addEventListener('click', openAuthPopup);
+
+    // ── Gestion retour au PWA après OAuth (iOS) ───────────────
+    // Sur iOS, quand l'utilisateur revient de Safari après OAuth,
+    // l'app reprend — on recharge l'iframe
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        var frame = document.getElementById('appFrame');
+        var authScreen = document.getElementById('auth-screen');
+        // Si l'auth screen était visible et qu'on revient, retenter
+        if (authScreen.style.display === 'flex') {
+          loadApp();
+        }
+      }
+    });
+
+    // ── Changement d'orientation ─────────────────────────────
+    window.addEventListener('orientationchange', function() {
+      setTimeout(sendSafeAreas, 400);
+    });
+
+    // ── Démarrage ────────────────────────────────────────────
+    loadApp();
+  </script>
 </body>
 </html>
