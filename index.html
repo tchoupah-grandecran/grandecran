@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Grand Écran</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Grand Écran">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#08090F">
+  <style>
+    :root { --safe-bg: #08090F; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%; width: 100%;
+      overflow: hidden;
+      background: var(--safe-bg);
+    }
+    /* Couvre la zone status bar avec la couleur du thème */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: env(safe-area-inset-top);
+      background: var(--safe-bg);
+      z-index: 9999;
+    }
+    iframe {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%; height: 100%;
+      border: none;
+      background: var(--safe-bg);
+    }
+  </style>
+</head>
+<body>
+  <iframe
+    id="app-frame"
+    src="https://script.google.com/macros/s/AKfycbw7HsfZuBeKWpisGDTSOcsy8BjagnTz33HLx6GA_EJ6Yu0wpqe9Yp57MevPBXfUpbWz/exec"
+    allow="fullscreen">
+  </iframe>
+  <script>
+    // Reçoit les changements de thème depuis l'app GAS
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'themeChange' && e.data.bg) {
+        document.documentElement.style.setProperty('--safe-bg', e.data.bg);
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', e.data.bg);
+      }
+    });
+  </script>
+</body>
+</html>
