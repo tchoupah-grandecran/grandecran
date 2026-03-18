@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <title>Inscription - Grand Ecran</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;400;700;800&display=swap" rel="stylesheet">
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--theme-bg-gradient);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.registration-container {
+  background: var(--theme-surface-overlay);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-radius: 20px;
+  padding: 10px;
+  max-width: 400px;
+  width: 95%;
+  box-shadow: var(--theme-shadow-strong);
+  max-height: 100vh;
+  overflow-y: auto;
+}
+
+.profile-header {
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+/* ── Avatar display ── */
+.current-avatar-display {
+  width: 80px; height: 80px;
+  margin: 0 auto 15px;
+  position: relative;
+}
+
+.current-avatar-display::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 80px; height: 80px;
+  background-color: var(--theme-surface-base);
+  border: 3px solid var(--theme-text);
+  border-radius: 50%;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.current-avatar-display img {
+  position: absolute;
+  bottom: 1px; left: -1px;
+  width: 81px; height: 81px;
+  object-fit: contain;
+  z-index: 2;
+  border-radius: 0 0 100px 100px;
+  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2));
+}
+
+.current-avatar-display::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 80px; height: 80px;
+  border: 3px solid var(--theme-text);
+  border-radius: 50%;
+  box-sizing: border-box;
+  z-index: 3;
+  pointer-events: none;
+  clip-path: inset(25% 0 0 0);
+}
+
+h1 {
+  color: var(--theme-text);
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  color: var(--theme-text-secondary);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+/* ── Avatar gallery ── */
+.avatar-section-title {
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.avatar-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 5px;
+  border-radius: 12px;
+}
+
+.avatar-option {
+  position: relative;
+  cursor: pointer;
+  border: 3px solid var(--theme-border-strong);
+  border-radius: 50%;
+  overflow: hidden;
+  aspect-ratio: 1;
+  transition: all 0.3s ease;
+  background: var(--theme-surface-base);
+}
+
+.avatar-option:hover {
+  transform: scale(1.1);
+  border-color: var(--theme-primary-muted);
+}
+
+.avatar-option.selected {
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 15px var(--theme-primary-muted);
+}
+
+.avatar-option img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* ── Info sections ── */
+.profile-info-section {
+  background: var(--theme-surface-base);
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.profile-info-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text-secondary);
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group { margin-bottom: 15px; }
+
+label {
+  display: block;
+  color: var(--theme-text);
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+input[type="text"],
+input[type="email"] {
+  width: 100%;
+  padding: 8px 6px;
+  background: var(--theme-input-bg);
+  border: 2px solid var(--theme-input-border);
+  border-radius: 8px;
+  color: var(--theme-text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--theme-input-focus);
+  background: var(--theme-surface-raised);
+}
+
+input::placeholder { color: var(--theme-text-secondary); }
+
+.help-text {
+  color: var(--theme-text-secondary);
+  font-size: 11px;
+  margin-top: 5px;
+}
+
+.profile-info-item { margin-bottom: 15px; }
+
+/* ── Rating scale toggle ── */
+.rating-scale-toggle {
+  display: inline-flex;
+  width: 100%;
+  background: var(--theme-surface-base);
+  border: 1px solid var(--theme-border);
+  border-radius: 40px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.rating-scale-btn {
+  flex: 1;
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 40px;
+  color: var(--theme-text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rating-scale-btn.active {
+  background: var(--theme-primary);
+  color: var(--theme-text-on-accent);
+  font-weight: 600;
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+
+/* ── Feature toggles ── */
+.feature-toggle { margin-bottom: 12px; }
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  position: relative;
+}
+
+.toggle-label input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0; height: 0;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 44px; height: 24px;
+  background: var(--theme-surface-raised);
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--theme-text-secondary);
+  top: 3px; left: 3px;
+  transition: all 0.3s;
+}
+
+.toggle-label input:checked ~ .toggle-slider {
+  background: var(--theme-primary);
+  border-color: var(--theme-primary);
+}
+
+.toggle-label input:checked ~ .toggle-slider::before {
+  transform: translateX(20px);
+  background: var(--theme-text-on-accent);
+}
+
+.toggle-label input:disabled ~ .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-text {
+  color: var(--theme-text);
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1;
+}
+
+/* ── Mandatory badge ── */
+.mandatory-badge {
+  background: var(--theme-primary-muted);
+  color: var(--theme-primary);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ── Theme selector ── */
+.theme-selector-modal {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.theme-option-modal {
+  cursor: pointer;
+  text-align: center;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.theme-option-modal:hover { background: var(--theme-surface-base); }
+
+.theme-option-modal.active {
+  background: var(--theme-surface-raised);
+  box-shadow: 0 0 0 2px var(--theme-primary);
+}
+
+.theme-preview-modal {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transition: all 0.2s;
+  margin-bottom: 5px;
+}
+
+.theme-label-modal {
+  font-size: 10px;
+  color: var(--theme-text-secondary);
+  display: block;
+}
+
+/* ── Submit button ── */
+.submit-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-hover));
+  color: var(--theme-text-on-accent);
+  border: none;
+  border-radius: 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 10px;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--theme-primary-muted);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Feedback messages ── */
+.error-message,
+.success-message {
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-top: 15px;
+  display: none;
+}
+
+.error-message {
+  background: rgba(233, 13, 13, 0.2);
+  border: 1px solid rgba(233, 13, 13, 0.4);
+  color: var(--theme-error);
+}
+
+.success-message {
+  background: rgba(14, 159, 110, 0.2);
+  border: 1px solid rgba(14, 159, 110, 0.4);
+  color: var(--theme-success);
+}
+  </style>
+  <script>
+  // Injection dynamique des balises iOS pour contourner les restrictions de Google Apps Script
+  (function() {
+    const metaStatus = document.createElement('meta');
+    metaStatus.name = 'apple-mobile-web-app-status-bar-style';
+    metaStatus.content = 'black-translucent';
+    document.head.appendChild(metaStatus);
+
+    const metaTheme = document.createElement('meta');
+    metaTheme.name = 'theme-color';
+    metaTheme.content = '#ffffff'; // Votre couleur de fond
+    document.head.appendChild(metaTheme);
+  })();
+
+  // Le reste de vos scripts existants...
+  const USER_FIRST_NAME = '<?= userFirstName ?>';
+  const USER_EMAIL = '<?= userEmail ?>';
+</script>
+</head>
+<body>
+  <div class="registration-container">
+    <div class="profile-header">
+      <!-- Current Avatar Display -->
+      <div class="current-avatar-display">
+        <img id="currentAvatarImg" src="https://i.imgur.com/54i18a4.png" alt="Avatar sélectionné">
+      </div>
+      
+      <h1>Bienvenue !</h1>
+      <p class="subtitle">Configure ton compte Grand Ecran</p>
+    </div>
+    
+    <form id="registrationForm">
+      
+      <!-- Profile Info -->
+      <div class="profile-info-section">
+        <div class="profile-info-title">Informations</div>
+        
+        <div class="form-group">
+          <label for="firstName">Prénom</label>
+          <input type="text" id="firstName" name="firstName" placeholder="Kevin" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="confirmEmail">Email</label>
+          <input type="email" id="confirmEmail" name="confirmEmail" placeholder="ton.email@exemple.com" required>
+          <p class="help-text" id="emailHint">Utilise l'email de ton compte Google</p>
+        </div>
+        
+        <div class="form-group">
+          <label for="spreadsheetId">ID Google Sheets (optionnel)</label>
+          <input type="text" id="spreadsheetId" name="spreadsheetId" placeholder="1a2b3c4d...">
+          <p class="help-text">Laisse vide pour créer une nouvelle feuille</p>
+        </div>
+      </div>
+      
+      <!-- Rating System -->
+      <div class="profile-info-section">
+        <div class="profile-info-title">Notation</div>
+        
+        <div class="profile-info-item">
+          <label>Échelle de notation</label>
+          <div class="rating-scale-toggle">
+            <button type="button" class="rating-scale-btn active" data-scale="5">⭐ Sur 5</button>
+            <button type="button" class="rating-scale-btn" data-scale="10">⭐ Sur 10</button>
+          </div>
+        </div>
+        
+        <div class="feature-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" id="opt-half-points" name="halfPoints">
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">Demi-points</span>
+          </label>
+        </div>
+      </div>
+      
+      <!-- Features -->
+      <div class="profile-info-section">
+        <div class="profile-info-title">Fonctionnalités</div>
+        
+        <div class="feature-toggle">
+  <label class="toggle-label">
+    <input type="checkbox" id="opt-capucines" name="capucines">
+    <span class="toggle-slider"></span>
+    <span class="toggle-text">🌸 Festival Capucines</span>
+  </label>
+</div>
+
+        <div class="feature-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" checked disabled>
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">Notation</span>
+            <span class="mandatory-badge">OBLIGATOIRE</span>
+          </label>
+        </div>
+        
+        <div class="feature-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" checked disabled>
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">Historique</span>
+            <span class="mandatory-badge">OBLIGATOIRE</span>
+          </label>
+        </div>
+        
+        <div class="feature-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" checked disabled>
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">Statistiques</span>
+            <span class="mandatory-badge">OBLIGATOIRE</span>
+          </label>
+        </div>
+        
+        <div class="feature-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" id="opt-story" name="storyModal">
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">Story Instagram</span>
+          </label>
+        </div>
+        
+        <div class="feature-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" id="opt-share" name="shareFunction">
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">Partage personnalisé</span>
+          </label>
+        </div>
+        
+        <div class="feature-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" id="opt-rewind" name="rewind">
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">Récap mensuel</span>
+          </label>
+        </div>
+      </div>
+      
+      <!-- Avatar Selection -->
+      <div class="profile-info-section">
+        <div class="profile-info-title">Choisis ton avatar</div>
+        <div class="avatar-gallery" id="avatarGallery">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+
+      <!-- Theme -->
+      <div class="profile-info-section">
+        <div class="profile-info-title">Thème de l'application</div>
+<div class="theme-selector-modal">
+  <div class="theme-option-modal" data-theme="dark-grey" onclick="selectTheme(this, 'dark-grey')">
+    <div class="theme-preview-modal" style="background: linear-gradient(135deg, #1C1B18 0%, #2A2825 100%)"></div>
+    <span class="theme-label-modal">Dark Grey</span>
+  </div>
+  <div class="theme-option-modal" data-theme="velvet-red" onclick="selectTheme(this, 'velvet-red')">
+    <div class="theme-preview-modal" style="background: linear-gradient(135deg, #7A0A0A 0%, #520606 100%)"></div>
+    <span class="theme-label-modal">Velvet Red</span>
+  </div>
+  <div class="theme-option-modal" data-theme="pine-green" onclick="selectTheme(this, 'pine-green')">
+    <div class="theme-preview-modal" style="background: linear-gradient(135deg, #0A4D3C 0%, #063227 100%)"></div>
+    <span class="theme-label-modal">Pine Green</span>
+  </div>
+  <div class="theme-option-modal" data-theme="coffee-cream" onclick="selectTheme(this, 'coffee-cream')">
+    <div class="theme-preview-modal" style="background: linear-gradient(135deg, #382618 0%, #4E3218 100%)"></div>
+    <span class="theme-label-modal">Cozy Coffee</span>
+  </div>
+  <div class="theme-option-modal" data-theme="pearl-white" onclick="selectTheme(this, 'pearl-white')">
+    <div class="theme-preview-modal" style="background: linear-gradient(135deg, #FFFFFF 0%, #EDE8DC 100%)"></div>
+    <span class="theme-label-modal">Pearl White</span>
+  </div>
+  <div class="theme-option-modal" data-theme="ocean-blue" onclick="selectTheme(this, 'ocean-blue')">
+    <div class="theme-preview-modal" style="background: linear-gradient(135deg, #0A2463 0%, #0D3B7A 50%, #1E5B8E 100%)"></div>
+    <span class="theme-label-modal">Ocean Blue</span>
+  </div>
+  <div class="theme-option-modal" data-theme="rose-quartz" onclick="selectTheme(this, 'rose-quartz')">
+    <div class="theme-preview-modal" style="background: linear-gradient(135deg, #4A1040 0%, #7B2560 100%)"></div>
+    <span class="theme-label-modal">Rose Quartz</span>
+  </div>
+  <div class="theme-option-modal" data-theme="golden-age" onclick="selectTheme(this, 'golden-age')">
+    <div class="theme-preview-modal" style="background: linear-gradient(135deg, #FFF8E7 0%, #F0E4CC 100%)"></div>
+    <span class="theme-label-modal">Golden Age</span>
+  </div>
+  <div class="theme-option-modal" data-theme="pride" onclick="selectTheme(this, 'pride')">
+    <div class="theme-preview-modal" style="background: linear-gradient(135deg, #1A1A2E 0%, #16213E 100%); position: relative; overflow: hidden;">
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 35%; background: linear-gradient(90deg, #E40303 0%, #FF8C00 20%, #FFED00 40%, #008026 60%, #004DFF 80%, #750787 100%);"></div>
+    </div>
+    <span class="theme-label-modal">Pride</span>
+  </div>
+</div>
+      </div>
+      
+      <button type="submit" class="submit-btn" id="submitBtn">Créer mon compte</button>
+      
+      <div class="error-message" id="errorMessage"></div>
+      <div class="success-message" id="successMessage"></div>
+    </form>
+  </div>
+  
+  <script>
+    let selectedAvatarUrl = 'https://i.imgur.com/54i18a4.png'; // Default
+    let selectedRatingScale = '5';
+    let selectedTheme = 'dark-grey';
+
+    // Load avatar gallery and setup event listeners on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Registration page loaded');
+      loadAvatarGallery();
+      getUserEmailHint();
+      setupRatingScaleButtons();
+      setupThemeOptions();
+    });
+
+    // Get user email for hint
+    function getUserEmailHint() {
+      google.script.run
+        .withSuccessHandler(function(email) {
+          if (email) {
+            document.getElementById('emailHint').textContent = 'Ton email Google : ' + email;
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error getting email:', error);
+        })
+        .getUserEmail();
+    }
+
+    // Load avatar presets from server
+    function loadAvatarGallery() {
+      console.log('Loading avatar gallery...');
+      google.script.run
+        .withSuccessHandler(function(presets) {
+          console.log('Avatar presets received:', presets);
+          const gallery = document.getElementById('avatarGallery');
+          gallery.innerHTML = '';
+          
+          presets.forEach((url, index) => {
+            const option = document.createElement('div');
+            option.className = 'avatar-option';
+            if (index === 0) option.classList.add('selected'); // Select first by default
+            option.innerHTML = `<img src="${url}" alt="Avatar option ${index + 1}">`;
+            
+            option.addEventListener('click', function() {
+              selectAvatar(this, url);
+            });
+            
+            gallery.appendChild(option);
+          });
+          
+          console.log('Avatar gallery loaded successfully');
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error loading avatars:', error);
+          // Fallback: create default avatar
+          const gallery = document.getElementById('avatarGallery');
+          gallery.innerHTML = '<div class="avatar-option selected"><img src="https://i.imgur.com/54i18a4.png" alt="Default avatar"></div>';
+        })
+        .getAvatarPresets();
+    }
+
+    // Avatar selection
+    function selectAvatar(element, url) {
+      document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('selected'));
+      element.classList.add('selected');
+      selectedAvatarUrl = url;
+      document.getElementById('currentAvatarImg').src = url;
+      console.log('Avatar selected:', url);
+    }
+
+    // Setup rating scale buttons
+    function setupRatingScaleButtons() {
+      document.querySelectorAll('.rating-scale-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          selectRatingScale(this, this.dataset.scale);
+        });
+      });
+      console.log('Rating scale buttons setup complete');
+    }
+
+    // Rating scale selection
+    function selectRatingScale(element, scale) {
+      document.querySelectorAll('.rating-scale-btn').forEach(btn => btn.classList.remove('active'));
+      element.classList.add('active');
+      selectedRatingScale = scale;
+      console.log('Rating scale selected:', scale);
+    }
+
+    // Setup theme options
+    function setupThemeOptions() {
+      document.querySelectorAll('.theme-option-modal').forEach(option => {
+        option.addEventListener('click', function() {
+          selectTheme(this, this.dataset.theme);
+        });
+      });
+      console.log('Theme options setup complete');
+    }
+
+    // Theme selection
+    function selectTheme(element, theme) {
+      document.querySelectorAll('.theme-option-modal').forEach(opt => opt.classList.remove('active'));
+      element.classList.add('active');
+      selectedTheme = theme;
+      console.log('Theme selected:', theme);
+    }
+
+    // Form submission
+    document.getElementById('registrationForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      console.log('Form submitted');
+      
+      const submitBtn = document.getElementById('submitBtn');
+      const errorMsg = document.getElementById('errorMessage');
+      const successMsg = document.getElementById('successMessage');
+      
+      errorMsg.style.display = 'none';
+      successMsg.style.display = 'none';
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Création en cours...';
+      
+      const formData = {
+        firstName: document.getElementById('firstName').value.trim(),
+        confirmEmail: document.getElementById('confirmEmail').value.trim(),
+        spreadsheetId: document.getElementById('spreadsheetId').value.trim() || null,
+        avatar: selectedAvatarUrl,
+        preferences: {
+          storyModal: document.getElementById('opt-story').checked,
+          shareFunction: document.getElementById('opt-share').checked,
+          rewind: document.getElementById('opt-rewind').checked,
+          theme: selectedTheme,
+          ratingScale: selectedRatingScale,
+          halfPoints: document.getElementById('opt-half-points').checked,
+          capucines: document.getElementById('opt-capucines').checked
+        }
+      };
+      
+      console.log('Form data:', formData);
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          console.log('Server response:', result);
+          
+          if (result.success) {
+            submitBtn.style.display = 'none';
+            successMsg.innerHTML = `
+              <div style="text-align:center;">
+                <strong>✓ Compte créé avec succès !</strong><br>
+                <button 
+                  onclick="window.top.location.href='${result.appUrl}'" 
+                  style="
+                    margin-top: 15px;
+                    padding: 12px 30px;
+                    background: linear-gradient(135deg, #E9B90A, #FFD700);
+                    color: #1E1E1E;
+                    border: none;
+                    border-radius: 8px;
+                    font-family: 'Inter', sans-serif;
+                    font-size: 15px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                  "
+                  onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(233, 185, 10, 0.4)'"
+                  onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'"
+                >
+                  Accéder à l'application
+                </button>
+              </div>
+            `;
+            successMsg.style.display = 'block';
+          } else {
+            errorMsg.textContent = result.error || 'Une erreur est survenue';
+            errorMsg.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Créer mon compte';
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Server error:', error);
+          errorMsg.textContent = 'Erreur de connexion : ' + error.message;
+          errorMsg.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Créer mon compte';
+        })
+        .createUserProfile(formData);
+    });
+  </script>
+</body>
+</html>
