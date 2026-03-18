@@ -12,20 +12,17 @@
   <title>Grand Ecran</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     html, body {
       width: 100%; height: 100%;
       background: #000;
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     }
-
     :root {
       --safe-top:    env(safe-area-inset-top,    0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
 
-    /* ── Loading ── */
     #loading {
       position: fixed;
       inset: 0;
@@ -39,10 +36,7 @@
       padding-top: var(--safe-top);
       transition: opacity 0.4s ease;
     }
-    #loading.fade-out {
-      opacity: 0;
-      pointer-events: none;
-    }
+    #loading.fade-out { opacity: 0; pointer-events: none; }
     #loading .logo {
       font-size: 22px;
       font-weight: 800;
@@ -59,7 +53,6 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Auth screen ── */
     #auth-screen {
       position: fixed;
       inset: 0;
@@ -109,7 +102,6 @@
       line-height: 1.5;
     }
 
-    /* ── iframe ── */
     #appFrame {
       position: fixed;
       top: 0; left: 0;
@@ -117,6 +109,7 @@
       border: none;
       background: #000;
       z-index: 10;
+      /* Toujours rendu, le loading est par-dessus */
     }
   </style>
 </head>
@@ -153,6 +146,7 @@
     var appShown             = false;
     var loadStartTime        = null;
     var hardTimeout          = null;
+    var showAppTimer         = null;
 
     // ─────────────────────────────────────────
     // SAFE AREAS
@@ -165,8 +159,8 @@
         'left:env(safe-area-inset-left,0px)',
         'right:env(safe-area-inset-right,0px)',
         'bottom:env(safe-area-inset-bottom,0px)',
-        'width:0', 'height:0',
-        'pointer-events:none', 'visibility:hidden', 'opacity:0'
+        'width:0','height:0',
+        'pointer-events:none','visibility:hidden','opacity:0'
       ].join(';');
       document.body.appendChild(probe);
       var s = window.getComputedStyle(probe);
@@ -191,6 +185,8 @@
     }
 
     function showAuth() {
+      clearTimeout(hardTimeout);
+      clearTimeout(showAppTimer);
       elLoading.style.display = 'none';
       elAuthScreen.style.display = 'flex';
       appShown = false;
@@ -200,14 +196,17 @@
       if (appShown) return;
       appShown = true;
       clearTimeout(hardTimeout);
+      clearTimeout(showAppTimer);
 
       elLoading.classList.add('fade-out');
       setTimeout(function() { elLoading.style.display = 'none'; }, 400);
       elAuthScreen.style.display = 'none';
 
+      // Envoyer les safe areas — plusieurs fois pour être sûr
       sendSafeAreas();
-      setTimeout(sendSafeAreas, 800);
-      setTimeout(sendSafeAreas, 2000);
+      setTimeout(sendSafeAreas, 500);
+      setTimeout(sendSafeAreas, 1500);
+      setTimeout(sendSafeAreas, 3000);
     }
 
     // ─────────────────────────────────────────
@@ -216,44 +215,52 @@
     function loadApp() {
       appShown             = false;
       waitingForAuthReturn = false;
+      clearTimeout(hardTimeout);
+      clearTimeout(showAppTimer);
       showLoading();
 
+      // Reset propre de l'iframe
       elFrame.onload = null;
       elFrame.src    = 'about:blank';
 
       setTimeout(function() {
         loadStartTime = Date.now();
-        clearTimeout(hardTimeout);
 
         elFrame.onload = onFrameLoad;
 
-        // Hard timeout 20s
+        // Hard timeout 25s — si vraiment rien ne se passe
         hardTimeout = setTimeout(function() {
-          if (!appShown) showAuth();
-        }, 20000);
+          if (!appShown) {
+            console.log('Hard timeout — affichage auth');
+            showAuth();
+          }
+        }, 25000);
 
         elFrame.src = GAS_URL;
-      }, 100);
+      }, 150);
     }
 
     function onFrameLoad() {
       var elapsed = Date.now() - loadStartTime;
+      console.log('iframe onload, elapsed:', elapsed + 'ms');
 
-      // Ignorer about:blank
-      if (elapsed < 50) return;
+      // Ignorer about:blank (elapsed < 100ms)
+      if (elapsed < 100) return;
 
-      // À ce stade on a reçu onload MAIS on ne sait pas encore
-      // si c'est l'app ou une page d'erreur GAS.
-      // On attend 3s supplémentaires pour laisser le temps
-      // à GAS_READY ou GAS_NEED_AUTH d'arriver via postMessage.
-      // Si rien n'arrive → on suppose que c'est l'app (showApp).
-      // Si GAS_NEED_AUTH arrive avant → showAuth() est appelé immédiatement.
-      setTimeout(function() {
+      // L'iframe a chargé quelque chose.
+      // On attend que GAS_READY ou GAS_NEED_AUTH arrive via postMessage.
+      // Délai généreux : 8 secondes.
+      // GAS_READY court-circuite ce timer dès qu'il arrive.
+      // GAS_NEED_AUTH court-circuite aussi.
+      // Si rien n'arrive → on suppose succès (GAS_READY non envoyé = bug JS GAS)
+      // et on affiche l'app.
+      clearTimeout(showAppTimer);
+      showAppTimer = setTimeout(function() {
         if (!appShown) {
-          clearTimeout(hardTimeout);
+          console.log('Pas de GAS_READY reçu après 8s — showApp() par défaut');
           showApp();
         }
-      }, 3000);
+      }, 8000);
     }
 
     // ─────────────────────────────────────────
@@ -261,20 +268,18 @@
     // ─────────────────────────────────────────
     elAuthBtn.addEventListener('click', function() {
       waitingForAuthReturn = true;
-      // Ouvre GAS en top-level dans Safari
-      // → OAuth peut se dérouler normalement hors iframe
       window.open(GAS_URL, '_blank');
     });
 
     // ─────────────────────────────────────────
     // RETOUR AU PWA APRÈS AUTH
-    // visibilitychange = l'utilisateur revient de Safari
     // ─────────────────────────────────────────
     document.addEventListener('visibilitychange', function() {
       if (document.visibilityState !== 'visible') return;
       if (waitingForAuthReturn) {
         waitingForAuthReturn = false;
-        loadApp();
+        // Petite pause pour laisser la session s'établir
+        setTimeout(loadApp, 500);
       }
     });
 
@@ -287,16 +292,12 @@
       switch (event.data.type) {
 
         case 'GAS_READY':
-          // GAS confirme qu'il est chargé et authentifié
-          // → afficher l'app immédiatement sans attendre le timer
-          clearTimeout(hardTimeout);
+          console.log('GAS_READY reçu ✓');
           showApp();
           break;
 
         case 'GAS_NEED_AUTH':
-          // GAS signale explicitement qu'il n'a pas de session
-          // → afficher l'écran de connexion immédiatement
-          clearTimeout(hardTimeout);
+          console.log('GAS_NEED_AUTH reçu');
           showAuth();
           break;
 
