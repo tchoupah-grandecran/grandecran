@@ -1,0 +1,1775 @@
+<script>
+// ========================================
+// GLOBAL VARIABLES & CONFIGURATION
+// ========================================
+
+let currentFilm = null;
+let films = [];
+let genres = [];
+let currentFilmIndex = 0;
+let isRefreshing = false;
+let toastTimeout = null;
+let nextScreeningNumber = 1;
+let currentPage = 'notation';
+
+const RATING_SCALE = (() => {
+  const scale = USER_PREFERENCES.ratingScale;
+  return scale === '10' ? 10 : 5;
+})();
+
+const ALLOW_HALF_POINTS = (() => {
+  const halfPoints = USER_PREFERENCES.halfPoints;
+  return halfPoints === true || halfPoints === 'true';
+})();
+
+const RATING_STEP = ALLOW_HALF_POINTS ? 0.5 : 1;
+
+window.RATING_SCALE      = RATING_SCALE;
+window.ALLOW_HALF_POINTS = ALLOW_HALF_POINTS;
+window.RATING_STEP       = RATING_STEP;
+
+console.log('Rating system initialized:', { scale: RATING_SCALE, halfPoints: ALLOW_HALF_POINTS, step: RATING_STEP });
+
+// ========================================
+// INITIALIZATION
+// ========================================
+
+document.addEventListener('DOMContentLoaded', function () {
+  createBackgroundPattern();
+  loadFilmsEtGenres();
+  loadScreeningNumber();
+  setupKeyboardNavigation();
+  initNavbarPill();
+  setupPosterDimmer();
+});
+
+// ========================================
+// KEYBOARD NAVIGATION
+// ========================================
+
+function setupKeyboardNavigation() {
+  document.addEventListener('keydown', (e) => {
+    // Navigation clavier dans les étoiles
+    const container = e.target.closest('.star-container');
+    if (container) {
+      const ratingControls = container.closest('.rating-controls');
+      if (!ratingControls) return;
+      const allContainers = Array.from(ratingControls.querySelectorAll('.star-container'));
+      const currentIndex  = allContainers.indexOf(container);
+
+      if (e.key === 'ArrowLeft' && currentIndex > 0) {
+        allContainers[currentIndex - 1].querySelector('.star-touch-full, label')?.focus();
+        e.preventDefault();
+      } else if (e.key === 'ArrowRight' && currentIndex < allContainers.length - 1) {
+        allContainers[currentIndex + 1].querySelector('.star-touch-full, label')?.focus();
+        e.preventDefault();
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        const input = container.querySelector('.star-input');
+        if (input) {
+          input.checked = true;
+          const fieldset = ratingControls.querySelector('.star');
+          if (fieldset) updateStarsDisplay(fieldset, parseFloat(input.value));
+        }
+        e.preventDefault();
+      }
+    }
+
+    // Raccourcis de page
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === '1') { showPage('history');   e.preventDefault(); }
+      else if (e.key === '2') { showPage('notation');  e.preventDefault(); }
+      else if (e.key === '3') { showPage('dashboard'); e.preventDefault(); }
+      else if (e.key === '4') { showPage('share');     e.preventDefault(); }
+    }
+  });
+}
+
+// ========================================
+// POSTER PARALLAX
+// ========================================
+
+function setupPosterDimmer() {
+  // Remove any old parallax handlers
+  const scrollContainer = document.querySelector('.ticket-scroll-container');
+  if (!scrollContainer) return;
+
+  // Remove old handler if present
+  if (scrollContainer._parallaxHandler) {
+    scrollContainer.removeEventListener('scroll', scrollContainer._parallaxHandler);
+    delete scrollContainer._parallaxHandler;
+  }
+
+  const posterBg = document.querySelector('.poster-background');
+  if (!posterBg) return;
+
+  // Reset any leftover transform on poster image
+  const posterImage = document.querySelector('.poster-image');
+  if (posterImage) {
+    posterImage.style.transform = 'none';
+    posterImage.style.transition = 'none';
+    posterImage.style.willChange = 'auto';
+  }
+
+  // Initialize dimmer opacity to 0
+  posterBg.style.setProperty('--dimmer-opacity', '0');
+
+  let ticking = false;
+  const handler = () => {
+    if (!ticking) {
+      requestAnimationFrame(() => {
+        const spacer = scrollContainer.querySelector('.ticket-spacer');
+        if (!spacer) { ticking = false; return; }
+
+        const scrolled = scrollContainer.scrollTop;
+        const spacerH = spacer.offsetHeight;
+
+        // Dimmer ramps from 0 → 0.55 as user scrolls through the spacer
+        const ratio = Math.min(scrolled / spacerH, 1);
+        const opacity = (ratio * 0.55).toFixed(3);
+        posterBg.style.setProperty('--dimmer-opacity', opacity);
+
+        ticking = false;
+      });
+      ticking = true;
+    }
+  };
+
+  scrollContainer._dimmerHandler = handler;
+  scrollContainer.addEventListener('scroll', handler, { passive: true });
+}
+
+// ========================================
+// PAGE NAVIGATION
+// ========================================
+
+function showPage(pageName) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+  const page = document.getElementById(pageName + '-page');
+  if (!page) return;
+  page.classList.add('active');
+  currentPage = pageName;
+
+  const navMap = {
+    'notation':  'nav-home',
+    'history':   'nav-history',
+    'dashboard': 'nav-dashboard',
+    'rewind':    'nav-rewind',
+    'share':     'nav-share',
+    'festival':  'nav-festival'
+  };
+
+  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+  const activeNav = document.getElementById(navMap[pageName]);
+  if (activeNav) activeNav.classList.add('active');
+
+  setTimeout(() => {
+    const pill       = document.querySelector('.nav-pill-indicator');
+    const activeItem = document.querySelector('.nav-item.active');
+    if (pill && activeItem) {
+      pill.style.width = activeItem.offsetWidth + 'px';
+      pill.style.left  = activeItem.offsetLeft  + 'px';
+    }
+  }, 50);
+
+  switch (pageName) {
+    case 'notation':  setupPosterDimmer(); break;
+    case 'history':   loadHistory();   break;
+    case 'dashboard': loadDashboard(); break;
+    case 'rewind':    loadRewind();    break;
+    case 'share':     loadShare();     break;
+    case 'festival': loadFestival(); break;
+  }
+
+  updatePendingBadge();
+}
+
+// ========================================
+// NAVBAR PILL
+// ========================================
+
+function initNavbarPill() {
+  const navbar   = document.querySelector('.app-navbar');
+  const navItems = document.querySelectorAll('.nav-item');
+  if (!navbar || navItems.length === 0) return;
+
+  let pill = navbar.querySelector('.nav-pill-indicator');
+  if (!pill) {
+    pill = document.createElement('div');
+    pill.className = 'nav-pill-indicator';
+    navbar.insertBefore(pill, navbar.firstChild);
+  }
+
+  function movePill() {
+    const activeItem = navbar.querySelector('.nav-item.active');
+    if (!activeItem) return;
+    pill.style.width = activeItem.offsetWidth + 'px';
+    pill.style.left  = activeItem.offsetLeft  + 'px';
+  }
+
+  movePill();
+  window.addEventListener('resize', movePill);
+
+  const observer = new MutationObserver(movePill);
+  navItems.forEach(item => observer.observe(item, { attributes: true, attributeFilter: ['class'] }));
+}
+
+// ========================================
+// PENDING BADGE
+// ========================================
+
+function updatePendingBadge() {
+  const badge = document.getElementById('pending-count');
+  if (!badge) return;
+  if (films.length > 0) {
+    badge.textContent = films.length;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+// ========================================
+// SCREENING NUMBER
+// ========================================
+
+function loadScreeningNumber() {
+  google.script.run
+    .withSuccessHandler(function (number) {
+      nextScreeningNumber = number;
+      const el = document.getElementById('screening-number');
+      if (el) el.textContent = number;
+      const pill = document.getElementById('story-screening-pill');
+      if (pill) pill.textContent = '#' + number;
+    })
+    .withFailureHandler(err => console.error('Erreur numéro séance:', err))
+    .getNextScreeningNumber();
+}
+
+// ========================================
+// REFRESH FILMS
+// ========================================
+
+function refreshFilms() {
+  if (isRefreshing) return;
+  isRefreshing = true;
+
+  const btn = document.querySelector('.refresh-button');
+  if (btn) btn.classList.add('refreshing');
+  showToast('Vérification des nouveaux films...', 'info');
+
+  google.script.run
+    .withSuccessHandler(function (result) {
+      isRefreshing = false;
+      if (btn) btn.classList.remove('refreshing');
+
+      films  = result.films  || [];
+      genres = result.genres || [];
+
+      document.getElementById('loading').style.display   = 'none';
+      document.getElementById('films-container').style.display = 'none';
+      document.getElementById('no-films').style.display  = 'none';
+
+      if (films.length > 0) {
+        showToast(`${films.length} film(s) à noter`, 'success');
+        if (currentPage === 'notation') displayFilm(0);
+      } else {
+        showToast('Aucun nouveau film à noter', 'info');
+        if (currentPage === 'notation') showNoFilms();
+      }
+      updatePendingBadge();
+    })
+    .withFailureHandler(function (err) {
+      isRefreshing = false;
+      if (btn) btn.classList.remove('refreshing');
+      showToast('Erreur de connexion : ' + err.message, 'error');
+    })
+    .getFilmsEtGenres();
+}
+
+// ========================================
+// TOAST
+// ========================================
+
+function showToast(message, type = 'info') {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toast.textContent = message;
+  toast.className   = 'toast show ' + type;
+  toastTimeout = setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// ========================================
+// LOAD FILMS & GENRES
+// ========================================
+
+function loadFilmsEtGenres() {
+  showLoading(true);
+
+  google.script.run
+    .withSuccessHandler(function (result) {
+      films  = result.films  || [];
+      genres = result.genres || [];
+      showLoading(false);
+      if (films.length === 0) showNoFilms();
+      else displayFilm(0);
+      updatePendingBadge();
+    })
+    .withFailureHandler(function (err) {
+      showLoading(false);
+      showToast('Erreur de chargement : ' + err.message, 'error');
+    })
+    .getFilmsEtGenres();
+}
+
+// ========================================
+// DISPLAY FILM
+// ========================================
+
+function displayFilm(index) {
+  if (index < 0 || index >= films.length) { showNoFilms(); return; }
+
+  document.getElementById('screening-info').style.display = 'flex';
+  currentFilmIndex = index;
+  currentFilm      = films[index];
+
+  const container = document.getElementById('films-container');
+  container.innerHTML    = generateTicketHTML(currentFilm);
+  container.style.display = 'block';
+
+  updatePosterBackground(currentFilm.affiche);
+  populateGenres();
+  attachEventListeners();
+  setupAutoExpandTextarea();
+  applyFeatureVisibility();
+
+  const posterImg = container.querySelector('.poster-image');
+  if (posterImg) {
+    const onLoad = () => {
+      setupPosterDimmer();   // dimmer instead of parallax
+      resizeMovieTitles();
+    };
+    posterImg.addEventListener('load', onLoad, { once: true });
+    if (posterImg.complete) onLoad();
+  }
+}
+
+// ========================================
+// UPDATE POSTER BACKGROUND
+// ========================================
+
+function updatePosterBackground(posterUrl) {
+  const posterImage = document.querySelector('.poster-image');
+  if (!posterImage) return;
+  posterImage.src = posterUrl || 'https://via.placeholder.com/1080x1920?text=Pas+d%27affiche';
+  posterImage.style.transform = 'scale(1.1) translateY(0px)';
+}
+
+function generateTicketHTML(film) {
+  const uniqueId = 'film-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+  let filmYear = '';
+  if (film.date) {
+    const parts = film.date.split('/');
+    if (parts.length === 3) filmYear = parts[2];
+  }
+
+  const genrePill = film.genre
+  ? `<span class="tag-pill tag-pill--genre" data-genre="${escapeHtml(film.genre)}">${escapeHtml(film.genre)}</span>`
+  : '';
+
+  const yearPill = filmYear
+    ? `<span class="tag-pill tag-pill--year">${filmYear}</span>`
+    : '';
+
+  const roomPillHTML = generateRoomPill(film.salle);
+
+  const capucinesSection = `
+  <section class="capucines_section">
+
+    <div class="capucines-pill-wrapper">
+      <input type="checkbox" id="capucines-checkbox-${uniqueId}"
+             name="capucines" class="capucines-input">
+      <label for="capucines-checkbox-${uniqueId}" class="capucines-pill">
+        <span class="capucines-icon capucines-icon-empty"></span>
+        <span class="capucines-pill-label">Capucines</span>
+      </label>
+    </div>
+
+    <div class="extras-pill">
+      <svg class="extras-pill-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 8h8l-1.5 8H7.5L6 8z" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linejoin="round" fill="none"/>
+        <path d="M5 8h10" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M8 5c0-1.1.9-2 2-2s2 .9 2 2" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-linecap="round" fill="none"/>
+      </svg>
+      <input type="text" id="food-price-${uniqueId}"
+             class="extras-supplement-input"
+             placeholder="0,00 €" inputmode="decimal">
+    </div>
+
+  </section>
+`;
+
+  return `
+    <div class="poster-background">
+      <img class="poster-image"
+           src="${film.affiche || ''}"
+           alt="Poster du film" loading="eager">
+    </div>
+    <div class="ticket-scroll-container">
+      <div class="ticket-spacer"></div>
+      <article class="ticket-card" data-film-id="${uniqueId}">
+
+        <section class="movie-title-section">
+          <h1 class="movie-title_main">
+            ${escapeHtml(decodeHtmlEntities(film.titre || 'Titre inconnu'))}
+          </h1>
+          <div class="movie-tags-row">
+            ${genrePill}${yearPill}${roomPillHTML}
+          </div>
+        </section>
+
+        <section class="rating-section">
+          <div class="rating-controls" id="rating-controls-${uniqueId}">
+            <div class="rating-indicator" id="rating-indicator-${uniqueId}">0</div>
+            <fieldset class="star" id="star-rating-${uniqueId}"
+                      role="radiogroup" aria-label="Note sur ${RATING_SCALE} étoiles">
+              <legend class="visually-hidden">Donne une note</legend>
+              ${generateStars(uniqueId)}
+            </fieldset>
+            <div class="rating-separator" id="separator-${uniqueId}">
+              <div class="rating-separator-line"></div>
+            </div>
+            <div class="heart-wrapper" id="heart-wrapper-${uniqueId}">
+              <input type="checkbox" id="favorite-checkbox-${uniqueId}"
+                     name="favorite" class="heart-input">
+              <label for="favorite-checkbox-${uniqueId}"
+                     class="heart heart-empty"
+                     aria-label="Marquer comme coup de coeur"></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="user-input-section">
+          <div class="comment-field-wrapper">
+            <svg class="comment-field-icon" viewBox="0 0 16 16" fill="none">
+              <path d="M11.5 2.5L13.5 4.5L5.5 12.5L2.5 13.5L3.5 10.5L11.5 2.5Z"
+                    stroke="rgba(255,255,255,0.6)" stroke-width="1.4"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <textarea id="comment-input-${uniqueId}" name="comment"
+                      class="comment-input-underline"
+                      placeholder="Ton avis en une phrase..."
+                      rows="1" maxlength="500"></textarea>
+          </div>
+        </section>
+
+        ${capucinesSection}
+
+        <button type="button" class="submit-button"
+                onclick="showConfirmationModal()">Enregistrer</button>
+
+        <section class="details-section">
+          <span class="screening-number-label">Séance #${nextScreeningNumber}</span>
+          <div class="details-grid1">
+            <div class="detail-item">
+              <div class="detail-icon">${generateCalendarIcon()}</div>
+              <span class="detail-text">${film.date || 'XX/XX/XXXX'}</span>
+            </div>
+            <div class="detail-item">
+              <div class="detail-icon">${generateClockIcon()}</div>
+              <span class="detail-text">${film.heure || 'XX:XX'}</span>
+            </div>
+            <div class="detail-item">
+              <div class="detail-icon">${generateTimerIcon()}</div>
+              <span class="detail-text">${film.duree || 'XhXX'}</span>
+            </div>
+            <div class="detail-item">
+              <div class="detail-icon">${generateLanguageIcon()}</div>
+              <span class="detail-text" id="lang-display-${uniqueId}">
+                ${film.langue === 'VF' ? 'FRA' : (film.langue || 'N/A')}
+              </span>
+            </div>
+            <div class="detail-item">
+              <div class="detail-icon">${generateDoorIcon()}</div>
+              <span class="detail-text">${film.salle ? 'Salle ' + film.salle : 'Salle XX'}</span>
+            </div>
+            <div class="detail-item">
+              <div class="detail-icon">${generateChairIcon()}</div>
+              <span class="detail-text">${film.siege || 'Libre'}</span>
+            </div>
+          </div>
+        </section>
+
+      </article>
+    </div>
+  `;
+}
+
+// ========================================
+// GENERATE STARS
+// ========================================
+
+function generateStars(uniqueId) {
+  const totalStars = window.RATING_SCALE      || 5;
+  const allowHalf  = window.ALLOW_HALF_POINTS || false;
+  const starSize   = totalStars === 10 ? 24 : 32;
+
+  // Inject CSS variables pour le séparateur et le cœur
+  let html = `
+    <style>
+      #separator-${uniqueId}      { --separator-height: ${starSize}px; }
+      #heart-wrapper-${uniqueId}  { --heart-size: ${starSize}px; }
+    </style>
+  `;
+
+  for (let i = 1; i <= totalStars; i++) {
+    const halfValue = i - 0.5;
+    const fullValue = i;
+    const starId    = `star-${i}-${uniqueId}`;
+
+    html += `<div class="star-container" style="width:${starSize}px;height:${starSize}px;">`;
+
+    if (allowHalf) {
+      html += `
+        <input type="radio" id="${starId}-half" name="rating-${uniqueId}"
+               value="${halfValue}" class="star-input">
+        <input type="radio" id="${starId}-full" name="rating-${uniqueId}"
+               value="${fullValue}" class="star-input">
+
+        <svg class="star-svg star-svg-bg"
+             width="${starSize}" height="${starSize}" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77
+                   l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                fill="rgba(150,150,150,0.35)" stroke="none"/>
+        </svg>
+
+        <svg class="star-svg star-svg-full"
+             width="${starSize}" height="${starSize}" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77
+                   l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                fill="var(--theme-star-filled)" stroke="none"/>
+        </svg>
+
+        <svg class="star-svg star-svg-half"
+             width="${starSize}" height="${starSize}" viewBox="0 0 24 24">
+          <defs>
+            <clipPath id="clip-half-${starId}">
+              <rect x="0" y="0" width="12" height="24"/>
+            </clipPath>
+          </defs>
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77
+                   l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                fill="var(--theme-star-filled)" stroke="none"
+                clip-path="url(#clip-half-${starId})"/>
+        </svg>
+
+        <label for="${starId}-half"
+               class="star-touch star-touch-half"
+               data-value="${halfValue}" data-star="${i}"
+               aria-label="${halfValue} étoile"></label>
+        <label for="${starId}-full"
+               class="star-touch star-touch-full"
+               data-value="${fullValue}" data-star="${i}"
+               aria-label="${fullValue} étoile"></label>
+      `;
+    } else {
+      html += `
+        <input type="radio" id="${starId}-full" name="rating-${uniqueId}"
+               value="${fullValue}" class="star-input">
+
+        <svg class="star-svg star-svg-bg"
+             width="${starSize}" height="${starSize}" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77
+                   l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                fill="rgba(150,150,150,0.35)" stroke="none"/>
+        </svg>
+
+        <svg class="star-svg star-svg-full"
+             width="${starSize}" height="${starSize}" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77
+                   l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                fill="var(--theme-star-filled)" stroke="none"/>
+        </svg>
+
+        <label for="${starId}-full"
+               class="star-touch star-touch-full"
+               data-value="${fullValue}" data-star="${i}"
+               aria-label="${fullValue} étoile"></label>
+      `;
+    }
+
+    html += `</div>`;
+  }
+
+  return html;
+}
+
+// ========================================
+// UPDATE STARS DISPLAY
+// ========================================
+
+function updateStarsDisplay(fieldsetOrControls, rating) {
+  // Accepte soit le fieldset (.star) soit le .rating-controls parent
+  const root = fieldsetOrControls.closest
+    ? (fieldsetOrControls.classList.contains('rating-controls')
+        ? fieldsetOrControls
+        : fieldsetOrControls.closest('.rating-controls') || fieldsetOrControls)
+    : fieldsetOrControls;
+
+  const allowHalf = window.ALLOW_HALF_POINTS || false;
+
+  root.querySelectorAll('.star-container').forEach(container => {
+    const fullLabel = container.querySelector('.star-touch-full');
+    const starNum   = parseInt(fullLabel?.dataset.star || 0);
+
+    const svgBg   = container.querySelector('.star-svg-bg');
+    const svgFull = container.querySelector('.star-svg-full');
+    const svgHalf = container.querySelector('.star-svg-half');
+
+    if (allowHalf) {
+      if (rating >= starNum) {
+        // Pleine
+        if (svgBg)   svgBg.style.display  = 'none';
+        if (svgFull) svgFull.style.display = 'block';
+        if (svgHalf) svgHalf.style.display = 'none';
+      } else if (rating >= starNum - 0.5) {
+        // Demi
+        if (svgBg)   svgBg.style.display  = 'block';
+        if (svgFull) svgFull.style.display = 'none';
+        if (svgHalf) svgHalf.style.display = 'block';
+      } else {
+        // Vide
+        if (svgBg)   svgBg.style.display  = 'block';
+        if (svgFull) svgFull.style.display = 'none';
+        if (svgHalf) svgHalf.style.display = 'none';
+      }
+    } else {
+      const fullValue = parseFloat(fullLabel?.dataset.value || 0);
+      if (rating >= fullValue) {
+        if (svgBg)   svgBg.style.display  = 'none';
+        if (svgFull) svgFull.style.display = 'block';
+      } else {
+        if (svgBg)   svgBg.style.display  = 'block';
+        if (svgFull) svgFull.style.display = 'none';
+      }
+    }
+  });
+}
+
+function buildGenrePill(genre) {
+  if (!genre) return '';
+  const escaped = escapeHtml(genre);
+  return `<span class="tag-pill tag-pill--genre" data-genre="${escaped}">${escaped}</span>`;
+}
+
+// ========================================
+// ATTACH EVENT LISTENERS
+// ========================================
+
+function attachEventListeners() {
+  const allowHalf = window.ALLOW_HALF_POINTS || false;
+
+  // ── ÉTOILES ──────────────────────────────────────────────────
+  document.querySelectorAll('.ticket-card .rating-controls').forEach(controls => {
+    let isDragging   = false;
+    let currentRating = 0;
+
+    const uniqueId  = controls.id.replace('rating-controls-', '');
+    const indicator = document.getElementById(`rating-indicator-${uniqueId}`);
+
+    // Valeur depuis un label .star-touch
+    const getValueFromLabel = (label) => parseFloat(label.dataset.value);
+
+    // Mise à jour de l'indicateur flottant
+    const updateIndicator = (rating, clientX) => {
+      if (!indicator) return;
+      const rect      = controls.getBoundingClientRect();
+      const relativeX = clientX - rect.left;
+      indicator.textContent = rating > 0 ? String(rating).replace('.', ',') : '0';
+      indicator.style.left  = `${relativeX}px`;
+      if (rating > 0 && isDragging) indicator.classList.add('visible');
+    };
+
+    const hideIndicator = () => indicator?.classList.remove('visible');
+
+    // Clic sur un label .star-touch
+    const handleClick = (e) => {
+      e.preventDefault();
+      const label       = e.currentTarget;
+      const clickedValue = getValueFromLabel(label);
+      const clientX     = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
+
+      if (currentRating === clickedValue) {
+        // Désélectionner
+        currentRating = 0;
+        controls.querySelectorAll('.star-input').forEach(inp => inp.checked = false);
+      } else {
+        currentRating = clickedValue;
+        const input   = controls.querySelector(`input[value="${clickedValue}"]`);
+        if (input) input.checked = true;
+      }
+
+      updateStarsDisplay(controls, currentRating);
+      updateIndicator(currentRating, clientX);
+      setTimeout(hideIndicator, 800);
+    };
+
+    // Début de glissement
+    const handleStart = (e) => {
+      const label = e.target.closest('.star-touch');
+      if (!label) return;
+      isDragging    = true;
+      currentRating = getValueFromLabel(label);
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
+      updateStarsDisplay(controls, currentRating);
+      updateIndicator(currentRating, clientX);
+    };
+
+    // Glissement
+    const handleMove = (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
+      const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
+
+      const labels = Array.from(controls.querySelectorAll('.star-touch'));
+      for (const label of labels) {
+        const rect = label.getBoundingClientRect();
+        if (clientX >= rect.left && clientX <= rect.right &&
+            clientY >= rect.top - 20 && clientY <= rect.bottom + 20) {
+          currentRating = getValueFromLabel(label);
+          updateStarsDisplay(controls, currentRating);
+          updateIndicator(currentRating, clientX);
+          break;
+        }
+      }
+    };
+
+    // Fin de glissement
+    const handleEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      const input = controls.querySelector(`input[value="${currentRating}"]`);
+      if (input) input.checked = true;
+      setTimeout(hideIndicator, 300);
+    };
+
+    // Attachement sur chaque label .star-touch
+    controls.querySelectorAll('.star-touch').forEach(label => {
+      label.addEventListener('click',      handleClick);
+      label.addEventListener('touchstart', handleClick, { passive: false });
+    });
+
+    controls.addEventListener('mousedown',  handleStart);
+    controls.addEventListener('touchstart', handleStart, { passive: false });
+    document.addEventListener('mousemove',  handleMove);
+    document.addEventListener('touchmove',  handleMove, { passive: false });
+    document.addEventListener('mouseup',    handleEnd);
+    document.addEventListener('touchend',   handleEnd);
+  });
+
+  // ── CŒUR ─────────────────────────────────────────────────────
+  document.querySelectorAll('.heart-input').forEach(heart => {
+    heart.addEventListener('change', function () {
+      const label = this.nextElementSibling;
+      if (!label) return;
+      label.classList.toggle('heart-empty',  !this.checked);
+      label.classList.toggle('heart-filled',  this.checked);
+    });
+  });
+
+  // ── CAPUCINES ────────────────────────────────────────────────
+document.querySelectorAll('.capucines-input').forEach(input => {
+  input.addEventListener('change', function () {
+    const icon = this.nextElementSibling?.querySelector('.capucines-icon');
+    if (!icon) return;
+    icon.classList.toggle('capucines-icon-empty',  !this.checked);
+    icon.classList.toggle('capucines-icon-filled',  this.checked);
+  });
+});
+
+  // ── SUPPLÉMENT (format numérique) ────────────────────────────
+  document.querySelectorAll('input[id^="food-price"]').forEach(input => {
+    input.addEventListener('input', function () {
+      this.value = this.value.replace(/[^0-9.,€]/g, '');
+    });
+  });
+}
+
+// ========================================
+// AUTO-EXPAND TEXTAREA
+// ========================================
+
+function setupAutoExpandTextarea() {
+  document.querySelectorAll('textarea.comment-input-underline').forEach(textarea => {
+    textarea.addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = this.scrollHeight + 'px';
+    });
+  });
+}
+
+// ========================================
+// CONFIRMATION MODAL
+// ========================================
+
+function showConfirmationModal() {
+  const ticket = document.querySelector('.ticket-card');
+  if (!ticket) { showToast('❌ Erreur : ticket introuvable', 'error'); return; }
+
+  const uniqueId = ticket.getAttribute('data-film-id');
+  const rating   = ticket.querySelector(`input[name="rating-${uniqueId}"]:checked`);
+  const genre    = ticket.querySelector(`#genre-select-${uniqueId}`);
+
+  if (!rating || !genre?.value) {
+    showToast('⭐ Tu dois attribuer une note et sélectionner un genre', 'error');
+    return;
+  }
+
+  const langue = currentFilm?.langue || '';
+  const isVOST = langue === 'VOST' || langue === 'VO';
+
+  if (isVOST) {
+    showVOSTLanguageModal();
+  } else {
+    showBasicConfirmationModal();
+  }
+}
+
+function showBasicConfirmationModal() {
+  const modal = document.createElement('div');
+  modal.className = 'confirmation-modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <h3>Confirmer la notation ?</h3>
+      <p style="color: #1E1E1E;">Cette action est définitive.</p>
+      <div class="modal-buttons">
+        <button id="modal-cancel">Annuler</button>
+        <button id="modal-confirm">Confirmer</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  document.getElementById('modal-cancel').addEventListener('click', () => modal.remove());
+  document.getElementById('modal-confirm').addEventListener('click', () => {
+    modal.remove();
+    saveCurrentFilm(null); // null = use original langue logic
+  });
+}
+
+function showVOSTLanguageModal() {
+  const LANGUAGES = [
+    { code: 'ENG', label: '🇬🇧 Anglais' },
+    { code: 'ESP', label: '🇪🇸 Espagnol' },
+    { code: 'JAP', label: '🇯🇵 Japonais' },
+    { code: 'KOR', label: '🇰🇷 Coréen' },
+    { code: 'ITA', label: '🇮🇹 Italien' },
+    { code: 'ALL', label: '🇩🇪 Allemand' },
+    { code: 'CHI', label: '🇨🇳 Chinois' },
+    { code: 'POR', label: '🇧🇷 Portugais' },
+    { code: 'RUS', label: '🇷🇺 Russe' },
+    { code: 'THA', label: '🇹🇭 Thaï' },
+    { code: 'ARA', label: '🇸🇦 Arabe' },
+    { code: 'HIN', label: '🇮🇳 Hindi' },
+    { code: 'DAN', label: '🇩🇰 Danois' },
+    { code: 'SUE', label: '🇸🇪 Suédois' },
+    { code: 'NOR', label: '🇳🇴 Norvégien' },
+    { code: 'POL', label: '🇵🇱 Polonais' },
+    { code: 'TUR', label: '🇹🇷 Turc' },
+  ];
+
+  const modal = document.createElement('div');
+  modal.className = 'confirmation-modal';
+  modal.innerHTML = `
+    <div class="modal-content vost-modal-content">
+      <h3>Choisis la langue du film</h3>
+
+      <div class="vost-language-grid">
+        ${LANGUAGES.map(l => `
+          <button class="vost-lang-btn" data-code="${l.code}" onclick="selectVOSTLang(this)">
+            ${l.label}
+          </button>
+        `).join('')}
+      </div>
+
+      <div class="vost-custom-row">
+        <input
+          type="text"
+          id="vost-custom-input"
+          class="input-field vost-custom-input"
+          placeholder="Autre (ex: FIN, HEB…)"
+          maxlength="3"
+          oninput="this.value = this.value.toUpperCase().replace(/[^A-Z]/g, '')"
+        >
+      </div>
+
+      <div class="modal-buttons" style="margin-top: 16px;">
+        <button id="vost-modal-cancel">Annuler</button>
+        <button id="vost-modal-confirm">Confirmer</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  document.getElementById('vost-modal-cancel').addEventListener('click', () => modal.remove());
+  document.getElementById('vost-modal-confirm').addEventListener('click', () => {
+    const selected = modal.querySelector('.vost-lang-btn.selected');
+    const custom   = document.getElementById('vost-custom-input').value.trim();
+    const langCode = custom || selected?.dataset.code;
+
+    if (!langCode || langCode.length < 2) {
+      showToast('⚠️ Sélectionne ou saisie une langue', 'error');
+      return;
+    }
+
+    modal.remove();
+    saveCurrentFilm(langCode.toUpperCase());
+  });
+}
+
+function selectVOSTLang(btn) {
+  document.querySelectorAll('.vost-lang-btn.selected').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('vost-custom-input').value = '';
+}
+
+// ========================================
+// SAVE CURRENT FILM
+// ========================================
+
+function saveCurrentFilm(langOverride) {
+  const ticket = document.querySelector('.ticket-card');
+  if (!ticket) { showToast('❌ Erreur : ticket introuvable', 'error'); return; }
+
+  const uniqueId     = ticket.getAttribute('data-film-id');
+  const rating       = ticket.querySelector(`input[name="rating-${uniqueId}"]:checked`);
+  const favorite     = ticket.querySelector(`#favorite-checkbox-${uniqueId}`);
+  const genre        = ticket.querySelector(`#genre-select-${uniqueId}`);
+  const foodPrice    = ticket.querySelector(`#food-price-${uniqueId}`);
+  const capucines    = ticket.querySelector(`#capucines-checkbox-${uniqueId}`);
+  const commentInput = ticket.querySelector(`#comment-input-${uniqueId}`);
+
+  if (!rating || !genre?.value) {
+    showToast('❌ Erreur : note ou genre manquant', 'error');
+    return;
+  }
+
+  // Language resolution
+  const rawLangue = currentFilm?.langue || 'N/A';
+  let resolvedLangue;
+  if (langOverride) {
+    resolvedLangue = langOverride; // VOST with user-selected language
+  } else if (rawLangue === 'VF') {
+    resolvedLangue = 'FRA';
+  } else {
+    resolvedLangue = rawLangue; // fallback for any other value
+  }
+
+  const notationData = {
+    titre:       currentFilm?.titre ? decodeHtmlEntities(escapeHtml(currentFilm.titre)) : 'Titre inconnu',
+    date:        currentFilm?.date   || 'XX/XX/XXXX',
+    heure:       currentFilm?.heure  || 'XX:XX',
+    duree:       currentFilm?.duree  || 'XhXX',
+    langue:      resolvedLangue,
+    salle:       currentFilm?.salle  ? `Salle ${currentFilm.salle}` : 'Salle XX',
+    siege:       currentFilm?.siege  || 'Libre',
+    note:        rating.value.replace('.', ','),
+    coupDeCoeur: !!favorite?.checked,
+    genre:       genre.value,
+    extras:      foodPrice?.value?.trim() || '0',
+    capucines:   !!capucines?.checked,
+    comment:     commentInput?.value?.trim().slice(0, 500) || '',
+    affiche:     currentFilm?.affiche  || '',
+    tmdbId:      currentFilm?.tmdbId   || '',
+    messageId:   currentFilm?.messageId || ''   // ✅ ADD THIS LINE
+};
+
+  const btn = ticket.querySelector('.submit-button');
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
+
+  showToast('💾 Enregistrement en cours...', 'info');
+
+  google.script.run
+    .withSuccessHandler((result) => {
+      if (result.success) {
+        showToast('✅ Film noté avec succès !', 'success');
+        films.splice(currentFilmIndex, 1);
+        loadScreeningNumber();
+        updatePendingBadge();
+        setTimeout(() => { if (films.length > 0) displayFilm(0); else showNoFilms(); }, 1000);
+      } else {
+        showToast(`❌ Erreur : ${result.error || 'Erreur inconnue'}`, 'error');
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+      }
+    })
+    .withFailureHandler((err) => {
+      showToast(`❌ Erreur réseau : ${err.message}`, 'error');
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+    })
+    .saveNotation(notationData);
+}
+
+function generateRoomPill(salle) {
+  if (!salle) return '';
+
+  const s = salle.toString().toUpperCase().trim();
+
+  if (s.includes('IMAX')) {
+    return `<span class="room-pill room-pill--imax">IMAX</span>`;
+  }
+  if (s.includes('4DX')) {
+    return `<span class="room-pill room-pill--4dx">4DX</span>`;
+  }
+  if (s.includes('DOLBY')) {
+    return `<span class="room-pill room-pill--dolby">DOLBY</span>`;
+  }
+  return '';
+}
+
+// ========================================
+// LOADING & EMPTY STATES
+// ========================================
+
+function showLoading(show) {
+  const loading   = document.getElementById('loading');
+  const container = document.getElementById('films-container');
+  const noFilms   = document.getElementById('no-films');
+
+  if (show) {
+    document.getElementById('screening-info').style.display = 'none';
+    loading.style.display   = 'block';
+    container.style.display = 'none';
+    noFilms.style.display   = 'none';
+  } else {
+    loading.style.display = 'none';
+  }
+}
+
+function showNoFilms() {
+  document.getElementById('screening-info').style.display  = 'none';
+  document.getElementById('loading').style.display         = 'none';
+  document.getElementById('films-container').style.display = 'none';
+  document.getElementById('no-films').style.display        = 'block';
+}
+
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return text.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;'}[m]));
+}
+
+function decodeHtmlEntities(text) {
+  const ta = document.createElement('textarea');
+  ta.innerHTML = text;
+  return ta.value;
+}
+
+function resizeMovieTitles() {
+  document.querySelectorAll('.movie-title_main').forEach(title => {
+    let fontSize = 20;
+    title.style.fontSize = fontSize + 'px';
+    while (title.scrollHeight > 65 && fontSize > 14) {
+      fontSize -= 0.5;
+      title.style.fontSize = fontSize + 'px';
+    }
+  });
+}
+
+function populateGenres() {
+  const filmId  = document.querySelector('.ticket-card')?.getAttribute('data-film-id');
+  const selects = document.querySelectorAll(`#genre-select-${filmId}`);
+  selects.forEach(select => {
+    const tmdbGenre = select.getAttribute('data-tmdb-genre') || '';
+
+    select.innerHTML = `<option value="" disabled ${!tmdbGenre ? 'selected' : ''}>Sélectionner</option>`;
+
+    genres.forEach(genre => {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = genre;
+      // Pré-sélectionner si correspondance avec le genre TMDB
+      if (tmdbGenre && genre.toLowerCase() === tmdbGenre.toLowerCase()) {
+        opt.selected = true;
+      }
+      select.appendChild(opt);
+    });
+
+    // Si le genre TMDB ne correspond à aucun genre existant, l'ajouter
+    if (tmdbGenre && !genres.some(g => g.toLowerCase() === tmdbGenre.toLowerCase())) {
+      const opt = document.createElement('option');
+      opt.value = tmdbGenre;
+      opt.textContent = tmdbGenre;
+      opt.selected = true;
+      select.insertBefore(opt, select.children[1]);
+    }
+  });
+}
+
+// ========================================
+// BACKGROUND PATTERN
+// ========================================
+
+function createBackgroundPattern() {
+  const container = document.getElementById('bg-pattern-container');
+  if (!container) return;
+
+  // Grain SVG — chaleureux, cinématographique
+  container.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"
+         style="position:absolute;inset:0;pointer-events:none;z-index:0;opacity:0.055">
+      <filter id="grain-filter">
+        <feTurbulence
+          type="fractalNoise"
+          baseFrequency="0.72"
+          numOctaves="4"
+          stitchTiles="stitch"/>
+        <feColorMatrix type="saturate" values="0"/>
+      </filter>
+      <rect width="100%" height="100%" filter="url(#grain-filter)"/>
+    </svg>
+  `;
+  container.style.position = 'fixed';
+  container.style.inset = '0';
+  container.style.pointerEvents = 'none';
+  container.style.zIndex = '0';
+}
+
+// ========================================
+// REFRESH ALL DATA
+// ========================================
+
+function refreshAllData() {
+  if (isRefreshing) return;
+  isRefreshing = true;
+
+  const btn = document.querySelector('.refresh-button');
+  if (btn) btn.classList.add('refreshing');
+  showToast('Synchronisation en cours...', 'info');
+
+  google.script.run
+    .withSuccessHandler(function (result) {
+      isRefreshing = false;
+      if (btn) btn.classList.remove('refreshing');
+
+      films  = result.films  || [];
+      genres = result.genres || [];
+
+      updateNotationUI();
+      if (currentPage === 'history')   loadHistory();
+      if (currentPage === 'dashboard') loadDashboard();
+      if (currentPage === 'share')     loadShare();
+      if (currentPage === 'rewind')    loadRewind();
+
+      updatePendingBadge();
+      showToast('Données synchronisées', 'success');
+    })
+    .withFailureHandler(function (err) {
+      isRefreshing = false;
+      if (btn) btn.classList.remove('refreshing');
+      showToast('Erreur : ' + err.message, 'error');
+    })
+    .getFilmsEtGenres();
+}
+
+function updateNotationUI() {
+  document.getElementById('loading').style.display = 'none';
+  if (films.length > 0) {
+    document.getElementById('films-container').style.display = 'block';
+    document.getElementById('no-films').style.display        = 'none';
+    displayFilm(0);
+  } else {
+    document.getElementById('films-container').style.display = 'none';
+    document.getElementById('no-films').style.display        = 'block';
+  }
+}
+
+// ========================================
+// ICON GENERATORS
+// ========================================
+
+function generateCalendarIcon() {
+  return `<svg class="icon-calendar" viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="4" width="18" height="18" rx="2" stroke="#5a5555" stroke-width="2" fill="none"/>
+    <line x1="3" y1="9" x2="21" y2="9" stroke="#5a5555" stroke-width="2"/>
+    <line x1="7" y1="2" x2="7" y2="6" stroke="#5a5555" stroke-width="2"/>
+    <line x1="17" y1="2" x2="17" y2="6" stroke="#5a5555" stroke-width="2"/>
+  </svg>`;
+}
+function generateClockIcon() {
+  return `<svg class="icon-clock" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="9" stroke="#5a5555" stroke-width="2" fill="none"/>
+    <path d="M12 6v6l4 2" stroke="#5a5555" stroke-width="2" stroke-linecap="round"/>
+  </svg>`;
+}
+function generateTimerIcon() {
+  return `<svg class="icon-timer" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="13" r="9" stroke="#5a5555" stroke-width="2" fill="none"/>
+    <path d="M12 8v5l3 3" stroke="#5a5555" stroke-width="2" stroke-linecap="round"/>
+    <path d="M10 2h4" stroke="#5a5555" stroke-width="2" stroke-linecap="round"/>
+  </svg>`;
+}
+function generateLanguageIcon() {
+  return `<svg class="icon-language" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="9" stroke="#5a5555" stroke-width="2" fill="none"/>
+    <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10
+             15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"
+          stroke="#5a5555" stroke-width="2"/>
+  </svg>`;
+}
+function generateDoorIcon() {
+  return `<svg class="icon-door" viewBox="0 0 24 24" fill="none">
+    <rect x="6" y="2" width="12" height="20" rx="1" stroke="#5a5555" stroke-width="2" fill="none"/>
+    <circle cx="15" cy="12" r="1" fill="#5a5555"/>
+  </svg>`;
+}
+function generateChairIcon() {
+  return `<svg class="icon-chair" viewBox="0 0 24 24" fill="none">
+    <path d="M5 10V6a2 2 0 012-2h10a2 2 0 012 2v4M5 10h14
+             M5 10v4a2 2 0 002 2h10a2 2 0 002-2v-4"
+          stroke="#5a5555" stroke-width="2" fill="none"/>
+    <path d="M7 16v5M17 16v5" stroke="#5a5555" stroke-width="2" stroke-linecap="round"/>
+  </svg>`;
+}
+
+// ========================================
+// YOY INDICATOR
+// ========================================
+
+function generateYoYIndicator(value, unit = "", invertColors = false, customClass = "") {
+  if (value === null || value === undefined) return "";
+  const isUp     = value > 0;
+  const arrow    = isUp ? " ↑ " : " ↓ ";
+  const absValue = Math.abs(value).toFixed(value % 1 !== 0 ? 2 : 0);
+  const cls      = customClass
+    ? (isUp ? `${customClass}up` : `${customClass}down`)
+    : (isUp ? "up" : "down");
+  return `<div class="yoy-indicator ${cls}">${arrow}${absValue}${unit}</div>`;
+}
+
+// ========================================
+// CAPTURE & DOWNLOAD — REWRITTEN FOR RELIABILITY
+// Replace the entire capture/download section in main.js
+// ========================================
+
+// ── Global capture lock: prevents double-taps from queuing two captures ──
+let _captureInProgress = false;
+
+// ── html2canvas loader with retry ──
+let _h2cLoading = null;
+function loadHtml2Canvas() {
+  if (typeof html2canvas !== 'undefined') return Promise.resolve();
+  if (_h2cLoading) return _h2cLoading;
+
+  _h2cLoading = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    script.onload = () => { resolve(); };
+    script.onerror = () => {
+      _h2cLoading = null; // allow retry next time
+      reject(new Error('Impossible de charger html2canvas'));
+    };
+    document.head.appendChild(script);
+  });
+  return _h2cLoading;
+}
+
+// ── Wait for all images in an element to finish loading ──
+function waitForImages(element) {
+  return new Promise((resolve) => {
+    const images = Array.from(element.querySelectorAll('img'));
+    if (images.length === 0) return resolve();
+
+    let remaining = images.length;
+    const done = () => { if (--remaining <= 0) resolve(); };
+
+    images.forEach(img => {
+      if (img.complete && img.naturalHeight !== 0) {
+        done();
+      } else {
+        img.addEventListener('load',  done, { once: true });
+        img.addEventListener('error', done, { once: true }); // don't block on broken images
+      }
+    });
+
+    // Hard timeout — never block forever
+    setTimeout(resolve, 5000);
+  });
+}
+
+// ── Convert external images to base64 via Google Script ──
+// Runs all conversions in parallel with a per-image timeout
+async function convertImagesToBase64(element) {
+  const images = Array.from(element.querySelectorAll('img')).filter(img =>
+    img.src &&
+    !img.src.startsWith('data:') &&
+    (img.src.startsWith('http://') || img.src.startsWith('https://'))
+  );
+  if (images.length === 0) return;
+
+  await Promise.all(images.map(img => {
+    return new Promise(resolve => {
+      // Per-image timeout of 4 s — if slow, just skip and use original URL
+      const timer = setTimeout(resolve, 4000);
+
+      fetchImageAsBase64(img.src)
+        .then(base64 => {
+          clearTimeout(timer);
+          if (base64) {
+            img.setAttribute('data-original-src', img.src);
+            img.src = base64;
+          }
+          resolve();
+        })
+        .catch(() => { clearTimeout(timer); resolve(); });
+    });
+  }));
+}
+
+function restoreOriginalImages(element) {
+  element.querySelectorAll('img[data-original-src]').forEach(img => {
+    img.src = img.getAttribute('data-original-src');
+    img.removeAttribute('data-original-src');
+  });
+}
+
+// ── fetchImageAsBase64: wrap the Google Script call in a Promise with timeout ──
+function fetchImageAsBase64(url) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), 5000); // 5 s max
+    try {
+      google.script.run
+        .withSuccessHandler(b64 => { clearTimeout(timer); resolve(b64 || null); })
+        .withFailureHandler(() =>  { clearTimeout(timer); resolve(null); })
+        .convertImageToBase64(url);
+    } catch (e) {
+      clearTimeout(timer);
+      resolve(null);
+    }
+  });
+}
+
+// ── Prepare / restore text areas for capture ──
+function prepareTextForCapture(element) {
+  element.querySelectorAll('textarea').forEach(textarea => {
+    if (!textarea.id || !textarea.id.includes('text-input')) return;
+    const displayDiv = element.querySelector(`#${textarea.id.replace('text-input', 'display')}`);
+    if (!displayDiv) return;
+    displayDiv.innerHTML = (textarea.value.trim() || '').replace(/\n/g, '<br>');
+    textarea.style.display = 'none';
+    displayDiv.style.display = 'block';
+    displayDiv.style.margin  = '0';
+    displayDiv.style.padding = '0';
+  });
+}
+
+function restoreTextAfterCapture(element) {
+  element.querySelectorAll('textarea').forEach(textarea => {
+    const displayDiv = element.querySelector(`#${textarea.id.replace('text-input', 'display')}`);
+    if (!displayDiv) return;
+    textarea.style.display   = '';
+    displayDiv.style.display = 'none';
+  });
+}
+
+// ── Rewind slide carousel isolation ──
+function rwPrepareSlideForCapture(slideEl) {
+  const track   = document.getElementById('rw-slide-track');
+  const wrapper = document.getElementById('rw-carousel-wrapper');
+  if (track) {
+    track.setAttribute('data-capture-transform',  track.style.transform  || '');
+    track.setAttribute('data-capture-transition', track.style.transition || '');
+    track.style.transition = 'none';
+    track.style.transform  = 'none';
+  }
+  document.querySelectorAll('.rw-slide').forEach(s => {
+    if (s !== slideEl) { s.setAttribute('data-capture-hidden', '1'); s.style.display = 'none'; }
+  });
+  slideEl.setAttribute('data-capture-width',    slideEl.style.width    || '');
+  slideEl.setAttribute('data-capture-position', slideEl.style.position || '');
+  slideEl.style.width    = (wrapper ? wrapper.offsetWidth : 480) + 'px';
+  slideEl.style.position = 'relative';
+
+  // Convert inline SVGs to img tags for html2canvas compatibility
+  slideEl.querySelectorAll('svg.rw-stat-illus').forEach(svg => {
+    try {
+      const uri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(new XMLSerializer().serializeToString(svg))));
+      const img = document.createElement('img');
+      img.src = uri; img.className = svg.className; img.style.cssText = svg.style.cssText;
+      svg.parentNode.replaceChild(img, svg);
+    } catch(e) {}
+  });
+}
+
+function rwRestoreSlideAfterCapture(slideEl) {
+  const track = document.getElementById('rw-slide-track');
+  if (track) {
+    track.style.transform  = track.getAttribute('data-capture-transform')  || '';
+    track.style.transition = track.getAttribute('data-capture-transition') || '';
+    track.removeAttribute('data-capture-transform');
+    track.removeAttribute('data-capture-transition');
+  }
+  document.querySelectorAll('.rw-slide[data-capture-hidden]').forEach(s => {
+    s.style.display = '';
+    s.removeAttribute('data-capture-hidden');
+  });
+  slideEl.style.width    = slideEl.getAttribute('data-capture-width')    || '';
+  slideEl.style.position = slideEl.getAttribute('data-capture-position') || '';
+  slideEl.removeAttribute('data-capture-width');
+  slideEl.removeAttribute('data-capture-position');
+}
+
+// ── Filename helper ──
+function getFilenameForContext(context, identifier) {
+  const sanitize = str => (str || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_')
+    .replace(/^_|_$/g, '').substring(0, 50);
+
+  if (context === 'story')  return `${sanitize(currentFilm?.titre || 'film')}_story.png`;
+  if (context === 'rewind') {
+    const dd = document.getElementById('rw-month-dropdown') || document.getElementById('rewind-month-dropdown');
+    return `recap_${sanitize(dd ? dd.value : 'mois')}_${sanitize(identifier || 'slide')}.png`;
+  }
+  if (context === 'share') {
+    return `${sanitize((typeof shareMovieData !== 'undefined' && shareMovieData?.titre) || (window.shareCurrentFilm?.titre) || 'film')}_${sanitize(identifier || 'slide')}.png`;
+  }
+  if (context === 'festival') {
+    return `festival_${sanitize(window.fsCurrent?.name || 'ceremony')}_${sanitize(identifier || 'slide')}.png`;
+  }
+  return 'capture.png';
+}
+
+// ── Manage button disabled state across one or more button IDs ──
+function setCaptureButtonsDisabled(buttonIds, disabled) {
+  buttonIds.forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = disabled;
+    btn.classList.toggle('rw-dl-busy',   disabled);
+    btn.classList.toggle('downloading',  disabled);
+  });
+}
+
+// ── Share blob via Web Share API or fallback to <a> download ──
+async function shareBlobOrDownload(blob, filename) {
+  const file = new File([blob], filename, { type: 'image/png' });
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  // ── CAS 1 : Web Share API avec fichier (iOS Safari, Android Chrome) ──
+  // Sur iOS, on tente directement sans canShare() qui est trop restrictif
+  if (navigator.share) {
+    const canShare = (() => {
+      try { return isIOS || !!navigator.canShare?.({ files: [file] }); }
+      catch { return isIOS; }
+    })();
+
+    if (canShare) {
+      try {
+        await navigator.share({ files: [file], title: 'Mon recap ciné' });
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return; // annulé par l'utilisateur
+        // Autre erreur → on continue vers les fallbacks
+        console.warn('[Share] navigator.share failed:', e.name, e.message);
+      }
+    }
+  }
+
+  // ── CAS 2 : Desktop Safari → data URL via <a download> ──
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  if (isSafari) {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = e => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return;
+  }
+
+  // ── CAS 3 : Chrome, Firefox, Edge → blob URL standard ──
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = url;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+}
+
+// ════════════════════════════════════════════════════════════════
+// captureAndDownload — THE MAIN FUNCTION (rewritten)
+//
+// Parameters:
+//   elementId  — id of the DOM element to capture
+//   context    — 'story' | 'rewind' | 'share'
+//   identifier — used for filename (slide name, etc.)
+//   buttonId   — primary button to show loading state on
+//   extraButtonIds — (optional) array of additional button ids to lock
+// ════════════════════════════════════════════════════════════════
+async function captureAndDownload(elementId, context, identifier, buttonId, extraButtonIds = []) {
+  // ── 1. Guard: prevent concurrent captures ──
+  if (_captureInProgress) {
+    console.warn('[Capture] Already in progress, ignoring duplicate call.');
+    return;
+  }
+  _captureInProgress = true;
+
+  const allButtonIds = [buttonId, ...extraButtonIds].filter(Boolean);
+  setCaptureButtonsDisabled(allButtonIds, true);
+
+  const element = document.getElementById(elementId);
+  if (!element) {
+    showToast('Erreur : élément introuvable', 'error');
+    setCaptureButtonsDisabled(allButtonIds, false);
+    _captureInProgress = false;
+    return;
+  }
+
+  const isRewindSlide  = elementId.startsWith('rw-slide-');
+  const isFestivalSlide = elementId.startsWith('fs-sl-');
+
+  // ── 2. Overall timeout: 30 s, then force-unlock ──
+  const globalTimer = setTimeout(() => {
+    console.error('[Capture] Global timeout exceeded — force-unlocking');
+    try { restoreOriginalImages(element); }   catch(e) {}
+    try { restoreTextAfterCapture(element); } catch(e) {}
+    try { if (isRewindSlide)   rwRestoreSlideAfterCapture(element);  } catch(e) {}
+    try { if (isFestivalSlide) fsRestoreSlideAfterCapture(element);  } catch(e) {}
+    setCaptureButtonsDisabled(allButtonIds, false);
+    _captureInProgress = false;
+    showToast('Délai dépassé — réessaie', 'error');
+  }, 30000);
+
+  try {
+  console.log('[CAP] start', elementId);
+  // ── 3. Load html2canvas ──
+  await loadHtml2Canvas();
+  console.log('[CAP] h2c loaded');
+  // ── 4. Prepare slide ──
+  if (isRewindSlide)   rwPrepareSlideForCapture(element);
+  if (isFestivalSlide) fsPrepareSlideForCapture(element);
+  console.log('[CAP] prepared');
+  // ── 5. Wait images ──
+  await waitForImages(element);
+  console.log('[CAP] images ready');
+  // ── 6. Text ──
+  prepareTextForCapture(element);
+  // ── 7. Base64 ──
+  await convertImagesToBase64(element);
+  console.log('[CAP] base64 done');
+
+    // ── 8. Render with html2canvas ──
+    const canvas = await html2canvas(element, {
+      allowTaint:      false,
+      useCORS:         true,
+      backgroundColor: null,
+      scale:           3,
+      logging:         false,
+      onclone: (clonedDoc) => {
+        // Strip backdrop-filter (not supported by html2canvas)
+        clonedDoc.querySelectorAll('*').forEach(el => {
+          el.style.backdropFilter       = 'none';
+          el.style.webkitBackdropFilter = 'none';
+        });
+
+        // Hide UI chrome that should not appear in the export
+        [
+          '.rw-arrow', '.rw-bullets-outer', '.rw-post-bottom',
+          '#rw-month-selector', '#rw-dl-btn',
+          '.ss-edit-trigger', '.ss-edit-panel',
+          '.share-controls', '.share-film-strip',
+          '.sp-nav-arrow', '.sp-dl-btn', '.studio-dl-btn',
+        ].forEach(sel => {
+          try { clonedDoc.querySelectorAll(sel).forEach(el => el.style.display = 'none'); }
+          catch(e) {}
+        });
+
+        // Genre bar z-index fix
+        clonedDoc.querySelectorAll('.rw-genre-medal,.rw-genre-name,.rw-genre-count,.rw-genre-spacer')
+          .forEach(el => { el.style.position = 'relative'; el.style.zIndex = '5'; });
+        clonedDoc.querySelectorAll('.rw-genre-fill')
+          .forEach(el => { el.style.zIndex = '0'; });
+
+        // Language percentage fix
+        clonedDoc.querySelectorAll('.rw-lang-pct,.rw-lang-name')
+          .forEach(el => { el.style.position = 'relative'; el.style.zIndex = '2'; });
+
+        // Ensure rw-stat-illus SVGs are visible
+        clonedDoc.querySelectorAll('.rw-stat-illus').forEach(el => {
+          el.style.display    = 'block';
+          el.style.visibility = 'visible';
+          if (!el.style.opacity) el.style.opacity = '0.13';
+        });
+
+        // Convert remaining inline SVGs to img for html2canvas
+        clonedDoc.querySelectorAll('svg.rw-stat-illus').forEach(svg => {
+          try {
+            const uri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(new XMLSerializer().serializeToString(svg))));
+            const img = clonedDoc.createElement('img');
+            img.src = uri;
+            img.className = svg.className.baseVal || svg.className;
+            img.style.cssText = svg.style.cssText;
+            svg.parentNode.replaceChild(img, svg);
+          } catch(e) {}
+        });
+
+        // data-blur / data-solid-bg attribute helpers
+        clonedDoc.querySelectorAll('[data-blur]').forEach(el => {
+          const v = el.getAttribute('data-blur');
+          el.style.filter       = `blur(${v})`;
+          el.style.webkitFilter = `blur(${v})`;
+        });
+        clonedDoc.querySelectorAll('[data-solid-bg]').forEach(el => {
+          el.style.backgroundColor = el.getAttribute('data-solid-bg');
+        });
+
+        // text-display whitespace
+        clonedDoc.querySelectorAll('.text-display').forEach(el => {
+          el.style.margin     = '0';
+          el.style.padding    = '0';
+          el.style.whiteSpace = 'pre-wrap';
+        });
+      console.log('[CAP] canvas done');
+      }
+    });
+
+    // ── 9. Restore DOM ──
+    restoreOriginalImages(element);
+    restoreTextAfterCapture(element);
+    if (isRewindSlide)  rwRestoreSlideAfterCapture(element);
+    if (isFestivalSlide) fsRestoreSlideAfterCapture(element);
+
+    // ── 10. Convert canvas → blob → share/download ──
+    await new Promise((resolve, reject) => {
+      canvas.toBlob(async (blob) => {
+        if (!blob) { reject(new Error('toBlob returned null')); return; }
+        try {
+          const filename = getFilenameForContext(context, identifier);
+          await shareBlobOrDownload(blob, filename);
+          resolve();
+        } catch(e) { reject(e); }
+      }, 'image/png');
+    });
+
+  } catch (err) {
+    console.error('[captureAndDownload] Error:', err);
+
+    // Always restore DOM on failure
+    try { restoreOriginalImages(element); }   catch(e) {}
+    try { restoreTextAfterCapture(element); } catch(e) {}
+    try { if (isRewindSlide)  rwRestoreSlideAfterCapture(element); } catch(e) {}
+    try { if (isFestivalSlide) fsRestoreSlideAfterCapture(element); } catch(e) {}
+
+    showToast('Erreur lors de la capture — réessaie', 'error');
+  } finally {
+    clearTimeout(globalTimer);
+    setCaptureButtonsDisabled(allButtonIds, false);
+    _captureInProgress = false;
+  }
+}
+
+// ── Story download shortcut ──
+async function downloadStory() {
+  await captureAndDownload('story-capture', 'story', '', 'story-download-btn');
+}
+
+// ════════════════════════════════════════════════════════════════
+// REWIND: rwDownloadCurrentSlide (replaces the one inside the IIFE)
+// Call this version INSTEAD of the original inside the carousel IIFE
+// ════════════════════════════════════════════════════════════════
+window.rwDownloadCurrentSlide = async function() {
+  const names   = ['hook', 'films', 'stats', 'genres', 'top-flop', 'profil'];
+  const cur     = window._rwCurrentSlide || 0;
+  const slideEl = document.getElementById('rw-slide-' + (cur + 1));
+  if (!slideEl) return;
+
+  // If slide 5 (top/flop), ensure poster backgrounds are loaded first
+  if (cur === 4) {
+    const data = _rwData[_rwMonth];
+    const pids = ['rw-s5-poster-top', 'rw-s5-poster-bottom'];
+    const titlesMap = {
+      'rw-s5-poster-top':    data?.bestMovie?.titre  || null,
+      'rw-s5-poster-bottom': data?.worstMovie?.titre || null,
+    };
+    await Promise.all(pids.map(pid => new Promise(resolve => {
+      if (_rwPosterBgCache[pid]) { resolve(); return; }
+      const titre = titlesMap[pid];
+      if (!titre)  { resolve(); return; }
+      google.script.run
+        .withSuccessHandler(url => {
+          if (url) { _rwPosterBgCache[pid] = url; const el = document.getElementById(pid); if (el) el.style.backgroundImage = 'url(' + url + ')'; }
+          resolve();
+        })
+        .withFailureHandler(() => resolve())
+        .getPosterByTitle(titre);
+    })));
+  }
+
+  // For slides with background-image elements, convert those too
+  const bgEls = Array.from(slideEl.querySelectorAll('[id]'))
+    .filter(el => _rwPosterBgCache[el.id]);
+
+  await Promise.all(bgEls.map(el => new Promise(resolve => {
+    const url = _rwPosterBgCache[el.id];
+    fetchImageAsBase64(url).then(b64 => {
+      if (b64) el.style.backgroundImage = 'url(' + b64 + ')';
+      resolve();
+    }).catch(() => resolve());
+  })));
+
+  await captureAndDownload(
+    'rw-slide-' + (cur + 1),
+    'rewind',
+    names[cur] || ('slide-' + (cur + 1)),
+    'rw-dl-btn',
+    ['studio-dl-btn']   // ← also locks the studio shell button
+  );
+};
+window.igDownloadCurrentSlide = window.rwDownloadCurrentSlide;
+
+// ════════════════════════════════════════════════════════════════
+// SHARE: shareDownloadCurrent (replaces original)
+// ════════════════════════════════════════════════════════════════
+window.shareDownloadCurrent = async function() {
+  // Close any open edit panels before capturing
+  if (typeof shareCloseEditPanel === 'function') {
+    shareCloseEditPanel('s4');
+    shareCloseEditPanel('s5');
+  }
+
+  const slideIds   = ['share-s1','share-s2','share-s3','share-s4','share-s5','share-s6'];
+  const slideId    = slideIds[shareCurrentIdx] || slideIds[0];
+  const identifier = 'slide_' + (shareCurrentIdx + 1);
+
+  await captureAndDownload(
+    slideId,
+    'share',
+    identifier,
+    'share-dl-btn',
+    ['sp-dl-btn']  // ← also locks the studio shell button
+  );
+};
+
+function loadShare() {
+  initDarkroomIfNeeded();
+}
+
+async function downloadStory() {
+  await captureAndDownload('story-capture', 'story', '', 'story-download-btn');
+}
+</script>
