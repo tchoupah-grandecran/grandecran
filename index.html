@@ -17,16 +17,17 @@
       width: 100%; height: 100%;
       background: #000;
       overflow: hidden;
-      font-family: -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* Safe area en CSS — fonctionne ici car on est top-level */
     :root {
       --safe-top:    env(safe-area-inset-top,    0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left:   env(safe-area-inset-left,   0px);
+      --safe-right:  env(safe-area-inset-right,  0px);
     }
 
-    /* Ecran de chargement affiché pendant la vérif OAuth */
+    /* ── Ecran de chargement ── */
     #loading {
       position: fixed;
       inset: 0;
@@ -36,28 +37,35 @@
       align-items: center;
       justify-content: center;
       gap: 20px;
-      z-index: 100;
+      z-index: 200;
       padding-top: var(--safe-top);
+      transition: opacity 0.3s ease;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
     }
 
     #loading .logo {
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 800;
       color: #fff;
-      letter-spacing: -0.02em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     #loading .spinner {
-      width: 24px; height: 24px;
-      border: 2px solid rgba(255,255,255,0.15);
-      border-top-color: #fff;
+      width: 22px; height: 22px;
+      border: 2px solid rgba(255,255,255,0.12);
+      border-top-color: rgba(255,255,255,0.85);
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 0.75s linear infinite;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Bouton auth affiché si besoin de se connecter */
+    /* ── Ecran d'auth ── */
     #auth-screen {
       position: fixed;
       inset: 0;
@@ -66,36 +74,59 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 24px;
-      z-index: 100;
-      padding: var(--safe-top) 32px var(--safe-bottom);
+      gap: 20px;
+      z-index: 200;
+      padding: var(--safe-top) 40px var(--safe-bottom);
+    }
+
+    #auth-screen.visible {
+      display: flex;
     }
 
     #auth-screen .logo {
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 800;
       color: #fff;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
     }
 
-    #auth-screen p {
-      color: rgba(255,255,255,0.6);
-      font-size: 15px;
+    #auth-screen .subtitle {
+      color: rgba(255,255,255,0.45);
+      font-size: 14px;
       text-align: center;
+      line-height: 1.5;
+      max-width: 260px;
     }
 
     #auth-btn {
-      padding: 14px 32px;
+      margin-top: 12px;
+      padding: 14px 36px;
       background: #fff;
       color: #000;
       border: none;
       border-radius: 50px;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
       cursor: pointer;
-      font-family: -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      letter-spacing: 0.01em;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s ease;
     }
 
-    /* L'iframe — masquée jusqu'à auth confirmée */
+    #auth-btn:active { opacity: 0.75; }
+
+    .auth-hint {
+      color: rgba(255,255,255,0.25);
+      font-size: 11px;
+      text-align: center;
+      max-width: 240px;
+      line-height: 1.5;
+    }
+
+    /* ── iframe ── */
     #appFrame {
       position: fixed;
       top: 0; left: 0;
@@ -104,7 +135,8 @@
       background: #000;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.3s ease;
+      transition: opacity 0.4s ease;
+      z-index: 10;
     }
 
     #appFrame.ready {
@@ -115,20 +147,18 @@
 </head>
 <body>
 
-  <!-- Ecran de chargement -->
   <div id="loading">
-    <div class="logo">GRAND ECRAN</div>
+    <div class="logo">Grand Écran</div>
     <div class="spinner"></div>
   </div>
 
-  <!-- Ecran auth (si pas de session) -->
   <div id="auth-screen">
-    <div class="logo">GRAND ECRAN</div>
-    <p>Connecte-toi avec ton compte Google pour continuer</p>
+    <div class="logo">Grand Écran</div>
+    <p class="subtitle">Une connexion Google est nécessaire pour accéder à l'application.</p>
     <button id="auth-btn">Se connecter avec Google</button>
+    <p class="auth-hint">Une fois connecté dans Safari, reviens sur cette page.</p>
   </div>
 
-  <!-- L'app GAS -->
   <iframe
     id="appFrame"
     allow="camera; microphone"
@@ -137,11 +167,32 @@
 
   <script>
     var GAS_URL = 'https://script.google.com/macros/s/AKfycbw7HsfZuBeKWpisGDTSOcsy8BjagnTz33HLx6GA_EJ6Yu0wpqe9Yp57MevPBXfUpbWz/exec';
-    var authPopup = null;
-    var authCheckTimeout = null;
 
-    // ── Mesure et envoi des safe areas à l'iframe ──────────────
-    function sendSafeAreas() {
+    // ─────────────────────────────────────────────
+    // ÉTAT
+    // ─────────────────────────────────────────────
+    var state = {
+      authPending:  false,
+      appReady:     false,
+      loadAttempts: 0,
+      maxAttempts:  2,
+      loadTimer:    null,
+      safeAreasSent: false
+    };
+
+    // ─────────────────────────────────────────────
+    // ÉLÉMENTS
+    // ─────────────────────────────────────────────
+    var elLoading    = document.getElementById('loading');
+    var elAuthScreen = document.getElementById('auth-screen');
+    var elFrame      = document.getElementById('appFrame');
+    var elAuthBtn    = document.getElementById('auth-btn');
+
+    // ─────────────────────────────────────────────
+    // SAFE AREAS
+    // Mesurées ici (top-level) et transmises à l'iframe GAS
+    // ─────────────────────────────────────────────
+    function measureSafeAreas() {
       var probe = document.createElement('div');
       probe.style.cssText = [
         'position:fixed',
@@ -149,137 +200,182 @@
         'left:env(safe-area-inset-left,0px)',
         'right:env(safe-area-inset-right,0px)',
         'bottom:env(safe-area-inset-bottom,0px)',
-        'width:0;height:0;pointer-events:none;visibility:hidden'
+        'width:0', 'height:0',
+        'pointer-events:none', 'visibility:hidden', 'opacity:0'
       ].join(';');
       document.body.appendChild(probe);
       var s = window.getComputedStyle(probe);
-      var areas = {
-        type:   'GRAND_ECRAN_SAFE_AREAS',
+      var result = {
         top:    parseInt(s.top)    || 0,
         left:   parseInt(s.left)   || 0,
         right:  parseInt(s.right)  || 0,
         bottom: parseInt(s.bottom) || 0
       };
       document.body.removeChild(probe);
+      return result;
+    }
 
-      var frame = document.getElementById('appFrame');
-      if (frame && frame.contentWindow) {
-        frame.contentWindow.postMessage(areas, '*');
+    function sendSafeAreas() {
+      var areas = measureSafeAreas();
+      if (elFrame && elFrame.contentWindow) {
+        elFrame.contentWindow.postMessage({
+          type:   'GRAND_ECRAN_SAFE_AREAS',
+          top:    areas.top,
+          left:   areas.left,
+          right:  areas.right,
+          bottom: areas.bottom
+        }, '*');
       }
     }
 
-    // ── Afficher l'app une fois prête ──────────────────────────
+    // ─────────────────────────────────────────────
+    // AFFICHAGE
+    // ─────────────────────────────────────────────
+    function showLoading() {
+      elLoading.classList.remove('hidden');
+      elAuthScreen.classList.remove('visible');
+    }
+
+    function showAuth() {
+      // L'auth screen remplace le loading
+      elLoading.classList.add('hidden');
+      elAuthScreen.classList.add('visible');
+      state.authPending = true;
+    }
+
     function showApp() {
-      document.getElementById('loading').style.display     = 'none';
-      document.getElementById('auth-screen').style.display = 'none';
-      var frame = document.getElementById('appFrame');
-      frame.classList.add('ready');
-      // Envoyer les safe areas après chargement
-      setTimeout(sendSafeAreas, 500);
-      setTimeout(sendSafeAreas, 1500); // retry
+      if (state.appReady) return;
+      state.appReady = true;
+      clearTimeout(state.loadTimer);
+
+      elLoading.classList.add('hidden');
+      elAuthScreen.classList.remove('visible');
+      elFrame.classList.add('ready');
+
+      // Envoyer les safe areas immédiatement puis en retry
+      sendSafeAreas();
+      setTimeout(sendSafeAreas, 600);
+      setTimeout(sendSafeAreas, 1800);
     }
 
-    // ── Lancer le flow OAuth dans un popup ────────────────────
-    // Sur iOS standalone, window.open ouvre dans Safari
-    // puis revient au PWA une fois l'auth terminée
-    function startAuth() {
-      document.getElementById('loading').style.display     = 'none';
-      document.getElementById('auth-screen').style.display = 'flex';
-    }
-
-    function openAuthPopup() {
-      // Ouvrir l'URL GAS directement — GAS va faire son OAuth
-      // puis rediriger vers l'app. On écoute via postMessage le signal de retour.
-      authPopup = window.open(
-        GAS_URL,
-        'gasAuth',
-        'width=400,height=600'
-      );
-
-      // Sur iOS standalone, window.open ouvre Safari
-      // L'utilisateur s'authentifie, puis revient manuellement
-      // On poll si la popup est fermée pour recharger l'iframe
-      var pollTimer = setInterval(function() {
-        if (authPopup && authPopup.closed) {
-          clearInterval(pollTimer);
-          // Popup fermée → tenter de charger l'iframe
-          loadApp();
+    // ─────────────────────────────────────────────
+    // DÉTECTION D'ERREUR DANS L'IFRAME
+    // GAS renvoie parfois une page Google Drive "autorisation requise"
+    // On ne peut pas lire le contenu (cross-origin) mais on peut
+    // détecter via la hauteur du document ou un timeout anormal
+    // ─────────────────────────────────────────────
+    function onFrameLoad() {
+      // L'iframe a chargé QUELQUE CHOSE — mais on ne sait pas quoi
+      // (cross-origin = pas d'accès au contenu)
+      //
+      // Stratégie : on attend un postMessage de l'app GAS
+      // (que tu vas ajouter dans index.html GAS — voir plus bas)
+      // Si après 5s on n'a pas reçu GAS_READY, c'est une page d'erreur
+      clearTimeout(state.loadTimer);
+      state.loadTimer = setTimeout(function() {
+        if (!state.appReady) {
+          // Pas de signal reçu = page d'erreur Google (auth requise)
+          // ou GAS trop lent — on distingue via le nb de tentatives
+          if (state.loadAttempts >= state.maxAttempts) {
+            // Plusieurs tentatives échouées → auth requise
+            showAuth();
+          } else {
+            // Première tentative → peut-être juste lent, retry
+            state.loadAttempts++;
+            reloadFrame();
+          }
         }
-      }, 500);
+      }, 5000); // 5s pour recevoir GAS_READY
     }
 
-    // ── Charger l'iframe GAS ──────────────────────────────────
+    // ─────────────────────────────────────────────
+    // CHARGEMENT / RECHARGEMENT
+    // ─────────────────────────────────────────────
     function loadApp() {
-      document.getElementById('loading').style.display = 'flex';
-      document.getElementById('auth-screen').style.display = 'none';
+      state.appReady = false;
+      state.authPending = false;
+      elFrame.classList.remove('ready');
+      showLoading();
 
-      var frame = document.getElementById('appFrame');
-      frame.classList.remove('ready');
-
-      // L'iframe charge l'app — si auth OK, GAS sert directement l'app
-      // Si auth KO, GAS redirige en interne (dans l'iframe, pas top-level)
-      frame.src = GAS_URL;
-
-      frame.onload = function() {
-        // Délai pour laisser GAS rendre son contenu
-        setTimeout(function() {
-          showApp();
-        }, 800);
-      };
-
-      // Fallback si onload ne se déclenche pas
-      setTimeout(function() {
-        if (!frame.classList.contains('ready')) {
-          showApp();
-        }
-      }, 4000);
+      elFrame.onload = onFrameLoad;
+      elFrame.src = GAS_URL + '?t=' + Date.now(); // cache-bust
     }
 
-    // ── Ecouter les messages de l'iframe GAS ─────────────────
-    window.addEventListener('message', function(event) {
-      if (!event.data || !event.data.type) return;
+    function reloadFrame() {
+      state.appReady = false;
+      elFrame.classList.remove('ready');
+      elFrame.onload = onFrameLoad;
+      elFrame.src = GAS_URL + '?t=' + Date.now();
+    }
 
-      switch(event.data.type) {
-        // L'iframe GAS signale que l'auth est OK
-        case 'GAS_AUTH_OK':
+    // ─────────────────────────────────────────────
+    // AUTH
+    // Ouvre GAS directement dans Safari (top-level)
+    // L'utilisateur s'authentifie, puis revient au PWA
+    // ─────────────────────────────────────────────
+    elAuthBtn.addEventListener('click', function() {
+      // Sur iOS standalone, window.open ouvre Safari Browser
+      window.open(GAS_URL, '_blank');
+
+      // Quand l'utilisateur revient (app reprend le focus),
+      // on retente de charger l'iframe — la session sera établie
+    });
+
+    // ─────────────────────────────────────────────
+    // RETOUR AU PWA APRÈS AUTH
+    // visibilitychange se déclenche quand l'app reprend le focus
+    // ─────────────────────────────────────────────
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState !== 'visible') return;
+
+      if (state.authPending) {
+        // L'utilisateur revient après avoir fait l'auth dans Safari
+        state.authPending  = false;
+        state.loadAttempts = 0;
+        state.appReady     = false;
+        loadApp();
+      } else if (!state.appReady) {
+        // App pas encore prête et on reprend le focus — retry
+        reloadFrame();
+      }
+    });
+
+    // ─────────────────────────────────────────────
+    // MESSAGES DE L'IFRAME GAS
+    // ─────────────────────────────────────────────
+    window.addEventListener('message', function(event) {
+      if (!event.data || typeof event.data !== 'object') return;
+
+      switch (event.data.type) {
+
+        // Signal que tu vas ajouter dans index.html GAS (voir ci-dessous)
+        // Confirme que l'app est chargée et authentifiée
+        case 'GAS_READY':
           showApp();
           break;
 
-        // L'iframe GAS signale qu'elle a besoin d'auth
-        case 'GAS_NEED_AUTH':
-          startAuth();
-          break;
-
-        // L'iframe GAS demande les safe areas (optionnel)
+        // L'app GAS demande les safe areas explicitement
         case 'GRAND_ECRAN_REQUEST_SAFE_AREAS':
           sendSafeAreas();
           break;
       }
     });
 
-    // ── Bouton de connexion ───────────────────────────────────
-    document.getElementById('auth-btn').addEventListener('click', openAuthPopup);
-
-    // ── Gestion retour au PWA après OAuth (iOS) ───────────────
-    // Sur iOS, quand l'utilisateur revient de Safari après OAuth,
-    // l'app reprend — on recharge l'iframe
-    document.addEventListener('visibilitychange', function() {
-      if (document.visibilityState === 'visible') {
-        var frame = document.getElementById('appFrame');
-        var authScreen = document.getElementById('auth-screen');
-        // Si l'auth screen était visible et qu'on revient, retenter
-        if (authScreen.style.display === 'flex') {
-          loadApp();
-        }
-      }
-    });
-
-    // ── Changement d'orientation ─────────────────────────────
+    // ─────────────────────────────────────────────
+    // ORIENTATION
+    // ─────────────────────────────────────────────
     window.addEventListener('orientationchange', function() {
       setTimeout(sendSafeAreas, 400);
+      setTimeout(sendSafeAreas, 900);
     });
 
-    // ── Démarrage ────────────────────────────────────────────
+    window.addEventListener('resize', function() {
+      setTimeout(sendSafeAreas, 200);
+    });
+
+    // ─────────────────────────────────────────────
+    // DÉMARRAGE
+    // ─────────────────────────────────────────────
     loadApp();
   </script>
 </body>
