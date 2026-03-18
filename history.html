@@ -1,0 +1,934 @@
+<!-- ============================================================
+     HISTORY PAGE — v4
+     · 2-row filter bar (row 1: year/search/sort · row 2: stars/CDC/Capu)
+     · First month-header top padding so it never clips under sticky bar
+     · Frosted-glass blur on cards
+     · Hero secondary stats (avg rating, hearts, capucines)
+     · Genre field now passed from .gs (add genre:r[10]||'' in getFilmsGroupedByYear)
+     · TMDB: special-char sanitise + exact-match priority + latest release (see .gs patch below)
+     ============================================================ -->
+<style>
+/* ════════════════════════════════════════════════
+   WRAP
+════════════════════════════════════════════════ */
+.hist-wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 14px 120px;
+  font-family: 'Inter', sans-serif;
+  color: var(--theme-text);
+}
+
+/* ════════════════════════════════════════════════
+   HERO
+════════════════════════════════════════════════ */
+.hist-hero {
+  padding: 32px 0 24px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  border-left: 3px solid var(--theme-primary);
+  margin-left: 2px;
+  margin-bottom: 22px;
+}
+.hist-hero-number {
+  font-size: clamp(56px, 16vw, 96px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: var(--theme-text);
+}
+.hist-hero-label {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--theme-text-secondary);
+  letter-spacing: 0.5px;
+  margin-top: 6px;
+}
+.hist-hero-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.hist-hero-stat {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 500;
+  color: var(--theme-text-secondary);
+  white-space: nowrap;
+}
+.hist-hero-stat-icon { display: flex; align-items: center; opacity: 0.7; }
+.hist-hero-stat-value { color: var(--theme-text); font-weight: 700; }
+.hist-hero-stat-dot {
+  width: 3px; height: 3px; border-radius: 50%;
+  background: var(--theme-border-strong); opacity: 0.4; flex-shrink: 0;
+}
+.hist-hero-skeleton {
+  height: 108px;
+  margin: 36px 2px 22px 20px;
+  border-radius: 6px;
+}
+
+/* ════════════════════════════════════════════════
+   STICKY FILTER BAR — 2 rows
+════════════════════════════════════════════════ */
+.hist-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--theme-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 10px 0 10px;
+  margin-bottom: 4px;
+  border-radius: 20px;
+}
+.hist-bar::after {
+  content: '';
+  position: absolute;
+  bottom: -20px; left: 0; right: 0;
+  height: 20px;
+  background: linear-gradient(to bottom, var(--theme-bg), transparent);
+  pointer-events: none;
+}
+
+/* Each row scrolls independently */
+.hist-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(to right, transparent 0px, black 14px, black calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0px, black 14px, black calc(100% - 14px), transparent 100%);
+  padding: 2px 14px 4px;
+}
+.hist-bar-row + .hist-bar-row { margin-top: 5px; }
+.hist-bar-row::-webkit-scrollbar { display: none; }
+
+/* Year select */
+.hist-year-wrap { position: relative; flex-shrink: 0; }
+.hist-year-select {
+  padding: 7px 28px 7px 13px;
+  background: var(--theme-input-bg);
+  border: 1.5px solid var(--theme-input-border);
+  border-radius: 20px;
+  color: var(--theme-text);
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  appearance: none;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  white-space: nowrap;
+}
+.hist-year-select:hover { border-color: var(--theme-border-strong); background: var(--theme-surface-raised); }
+.hist-year-select:focus-visible { outline: 3px solid var(--theme-primary); outline-offset: 2px; }
+.hist-year-select option { background: var(--theme-bg); color: var(--theme-text); }
+.hist-year-wrap::after {
+  content: '';
+  position: absolute; right: 11px; top: 50%;
+  transform: translateY(-50%);
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 4px solid var(--theme-text);
+  pointer-events: none;
+}
+
+/* Separator */
+.hist-bar-sep {
+  width: 1px; height: 18px;
+  background: var(--theme-border);
+  flex-shrink: 0; opacity: 0.55;
+}
+
+/* Search */
+.hist-search-wrap { position: relative; flex-shrink: 0; display: flex; align-items: center; }
+.hist-search-icon {
+  position: absolute; left: 11px;
+  pointer-events: none; opacity: 0.38;
+  display: flex; align-items: center;
+}
+.hist-search {
+  padding: 7px 13px 7px 30px;
+  background: var(--theme-input-bg);
+  border: 1.5px solid var(--theme-input-border);
+  border-radius: 20px;
+  color: var(--theme-text);
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, width 0.28s cubic-bezier(0.4,0,0.2,1);
+  width: 128px;
+}
+.hist-search::placeholder { color: var(--theme-text-secondary); }
+.hist-search:focus { width: 188px; background: var(--theme-surface-raised); border-color: var(--theme-input-focus); }
+
+/* Pills */
+.hist-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 7px 13px;
+  background: var(--theme-surface-base);
+  border: 1.5px solid var(--theme-border);
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 12px; font-weight: 500;
+  color: var(--theme-text);
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+  white-space: nowrap; flex-shrink: 0; outline: none; line-height: 1;
+}
+.hist-pill:hover { background: var(--theme-surface-raised); border-color: var(--theme-border-strong); transform: translateY(-1px); }
+.hist-pill:focus-visible { outline: 3px solid var(--theme-primary); outline-offset: 2px; }
+.hist-pill.active { background: var(--theme-primary-muted); border-color: var(--theme-primary); color: var(--theme-primary); font-weight: 700; }
+.hist-pill.heart-pill.active { background: rgba(233,13,13,0.13); border-color: rgba(233,13,13,0.45); color: #E90D0D; }
+.hist-pill.capu-pill.active  { background: rgba(255,105,180,0.13); border-color: rgba(255,105,180,0.5); color: hotpink; }
+.hist-pill .pill-icon { display: flex; align-items: center; }
+.hist-pill .pill-icon svg { display: block; }
+
+/* Sort */
+.hist-sort {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 7px 13px;
+  background: var(--theme-surface-base);
+  border: 1.5px solid var(--theme-border);
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 12px; font-weight: 500;
+  color: var(--theme-text-secondary);
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap; flex-shrink: 0; outline: none; user-select: none;
+}
+.hist-sort:hover { background: var(--theme-surface-raised); border-color: var(--theme-border-strong); color: var(--theme-text); }
+.hist-sort:focus-visible { outline: 3px solid var(--theme-primary); outline-offset: 2px; }
+.hist-sort-icon { font-size: 14px; line-height: 1; }
+
+/* ════════════════════════════════════════════════
+   MONTH GROUP
+   first-child gets extra top padding so the eyebrow label
+   is never swallowed by the sticky bar + its fade gradient
+════════════════════════════════════════════════ */
+.hist-month-group { margin-bottom: 22px; }
+.hist-month-group:first-child { padding-top: 22px; }
+
+.hist-month-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px; padding: 0 2px;
+}
+.hist-month-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--theme-primary); white-space: nowrap;
+}
+.hist-month-line { flex: 1; height: 1px; background: var(--theme-border); opacity: 0.5; }
+.hist-month-count { font-size: 10px; font-weight: 500; color: var(--theme-text-secondary); white-space: nowrap; }
+
+/* ════════════════════════════════════════════════
+   FILM CARD — frosted glass
+════════════════════════════════════════════════ */
+.hist-film-card {
+  display: flex; align-items: stretch;
+  margin-bottom: 5px;
+  background: color-mix(in srgb, var(--theme-surface-base) 72%, transparent);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  border: 1px solid color-mix(in srgb, var(--theme-border) 60%, transparent);
+  border-radius: 10px; overflow: hidden;
+  transition: background 0.18s, border-color 0.18s, transform 0.18s, box-shadow 0.18s;
+  animation: hist-card-in 0.2s ease both;
+}
+.hist-film-card:hover {
+  background: color-mix(in srgb, var(--theme-surface-raised) 82%, transparent);
+  border-color: color-mix(in srgb, var(--theme-border-strong) 70%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--theme-primary) 8%, transparent),
+              var(--theme-shadow);
+}
+@keyframes hist-card-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .hist-film-card { background: var(--theme-surface-base); border-color: var(--theme-border); }
+  .hist-film-card:hover { background: var(--theme-surface-raised); border-color: var(--theme-border-strong); }
+}
+
+/* Rating edge */
+.hist-rating-edge { width: 3px; flex-shrink: 0; }
+
+/* Poster */
+.hist-poster-wrap {
+  width: 46px; flex-shrink: 0;
+  position: relative;
+  background: var(--theme-surface-raised);
+  overflow: hidden;
+}
+.hist-poster-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hist-poster-placeholder {
+  width: 100%; height: 100%; min-height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; opacity: 0.28;
+}
+
+/* Info */
+.hist-card-info {
+  flex: 1; min-width: 0;
+  padding: 10px 10px 10px 13px;
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
+}
+.hist-card-title-row { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.hist-card-title {
+  font-size: 13px; font-weight: 600; color: var(--theme-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1; min-width: 0;
+}
+/* Heart icon */
+.hist-card-heart-icon svg { width: 11px; height: 11px; fill: var(--theme-error); display: block; flex-shrink: 0; }
+/* Capucines badge — sits right after the title text */
+.hist-capu-badge {
+  width: 13px; height: 13px; object-fit: contain;
+  background: white; border-radius: 50%; padding: 1px;
+  box-sizing: border-box; flex-shrink: 0;
+}
+.hist-card-meta-row { display: flex; align-items: center; gap: 5px; }
+.hist-card-date   { font-size: 11px; color: var(--theme-text-secondary); flex-shrink: 0; }
+.hist-card-sep    { font-size: 10px; color: var(--theme-text-secondary); opacity: 0.35; flex-shrink: 0; }
+.hist-card-genre  { font-size: 11px; color: var(--theme-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Stars */
+.hist-card-stars {
+  display: flex; align-items: center; gap: 2px;
+  flex-shrink: 0; padding: 0 12px 0 6px;
+}
+
+/* ════════════════════════════════════════════════
+   SKELETON
+════════════════════════════════════════════════ */
+.hist-skeleton-list { display: flex; flex-direction: column; gap: 5px; padding-top: 6px; }
+.hist-skeleton-card {
+  display: flex; align-items: stretch;
+  background: var(--theme-surface-base);
+  border-radius: 10px; overflow: hidden; height: 64px;
+}
+.hist-skel {
+  background: linear-gradient(90deg, var(--theme-surface-base) 25%, var(--theme-surface-raised) 50%, var(--theme-surface-base) 75%);
+  background-size: 200% 100%;
+  animation: hist-shimmer 1.5s infinite;
+}
+@keyframes hist-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.hist-skel-edge   { width: 3px; flex-shrink: 0; }
+.hist-skel-poster { width: 46px; flex-shrink: 0; }
+.hist-skel-body   { flex: 1; margin: 14px 12px; border-radius: 4px; }
+.hist-skel-stars  { width: 70px; margin: 14px 12px 14px 0; border-radius: 4px; }
+
+/* ════════════════════════════════════════════════
+   EMPTY
+════════════════════════════════════════════════ */
+.hist-empty { text-align: center; padding: 60px 20px; color: var(--theme-text-secondary); }
+.hist-empty svg { width: 48px; height: 48px; opacity: 0.3; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
+.hist-empty p { font-size: 13px; margin-top: 8px; }
+
+/* ════════════════════════════════════════════════
+   RESPONSIVE
+════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .hist-hero-number { font-size: clamp(48px, 18vw, 72px); }
+  .hist-search { width: 108px; }
+  .hist-search:focus { width: 148px; }
+  .hist-hero-stats { gap: 10px; }
+}
+</style>
+
+<!-- ════════════════════════════════════════════════════════
+     HTML
+════════════════════════════════════════════════════════ -->
+<div class="hist-wrap">
+
+  <!-- HERO -->
+  <div class="hist-hero" id="hist-hero" style="display:none;">
+    <div class="hist-hero-number" id="hist-hero-num">0</div>
+    <div class="hist-hero-label">films vus</div>
+    <div class="hist-hero-stats" id="hist-hero-stats"></div>
+  </div>
+  <div class="hist-hero-skeleton hist-skel" id="hist-hero-skel"></div>
+
+  <!-- STICKY FILTER BAR — 2 rows -->
+  <div class="hist-bar" id="hist-bar" style="display:none;">
+
+    <!-- Row 1: year · search · sort -->
+    <div class="hist-bar-row">
+      <div class="hist-year-wrap">
+        <select id="hist-year-select" class="hist-year-select" aria-label="Année">
+          <option value="all">Toutes les années</option>
+        </select>
+      </div>
+
+      <div class="hist-bar-sep"></div>
+
+      <div class="hist-search-wrap">
+        <span class="hist-search-icon">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </span>
+        <input type="text" id="hist-search" class="hist-search" placeholder="Rechercher…" aria-label="Rechercher un film">
+      </div>
+
+      <div class="hist-bar-sep" style="margin-left:auto;flex-shrink:0;"></div>
+
+      <div class="hist-sort" id="hist-sort" tabindex="0" role="button" aria-label="Trier par date">
+        Date <span class="hist-sort-icon" id="hist-sort-icon">↓</span>
+      </div>
+    </div>
+
+    <!-- Row 2: star pills · CDC · Capucines -->
+<div class="hist-bar-row">
+  <div id="hist-star-pills"></div>
+
+  <div class="hist-bar-sep"></div>
+
+  <button class="hist-pill heart-pill" id="hist-heart-pill" aria-label="Coups de cœur">
+    <span class="pill-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--theme-error)"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>
+    CDC
+  </button>
+
+  <button class="hist-pill capu-pill" id="hist-capu-pill" aria-label="Festival Capucines">
+    🌸 Capucines
+  </button>
+</div>
+
+  </div><!-- /.hist-bar -->
+
+  <!-- Film list -->
+  <div id="hist-film-list"></div>
+
+  <!-- Loader -->
+  <div id="hist-loader" style="display:none;">
+    <div class="hist-skeleton-list">
+      <div class="hist-skeleton-card"><div class="hist-skel hist-skel-edge"></div><div class="hist-skel hist-skel-poster"></div><div class="hist-skel hist-skel-body"></div><div class="hist-skel hist-skel-stars"></div></div>
+      <div class="hist-skeleton-card"><div class="hist-skel hist-skel-edge"></div><div class="hist-skel hist-skel-poster"></div><div class="hist-skel hist-skel-body"></div><div class="hist-skel hist-skel-stars"></div></div>
+      <div class="hist-skeleton-card"><div class="hist-skel hist-skel-edge"></div><div class="hist-skel hist-skel-poster"></div><div class="hist-skel hist-skel-body"></div><div class="hist-skel hist-skel-stars"></div></div>
+      <div class="hist-skeleton-card"><div class="hist-skel hist-skel-edge"></div><div class="hist-skel hist-skel-poster"></div><div class="hist-skel hist-skel-body"></div><div class="hist-skel hist-skel-stars"></div></div>
+      <div class="hist-skeleton-card"><div class="hist-skel hist-skel-edge"></div><div class="hist-skel hist-skel-poster"></div><div class="hist-skel hist-skel-body"></div><div class="hist-skel hist-skel-stars"></div></div>
+      <div class="hist-skeleton-card"><div class="hist-skel hist-skel-edge"></div><div class="hist-skel hist-skel-poster"></div><div class="hist-skel hist-skel-body"></div><div class="hist-skel hist-skel-stars"></div></div>
+      <div class="hist-skeleton-card"><div class="hist-skel hist-skel-edge"></div><div class="hist-skel hist-skel-poster"></div><div class="hist-skel hist-skel-body"></div><div class="hist-skel hist-skel-stars"></div></div>
+    </div>
+  </div>
+
+</div><!-- /.hist-wrap -->
+
+<script>
+/* ════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════ */
+let _histRaw     = {};
+let _histSort    = 'desc';
+let _histYear    = 'all';
+let _histFilters = { heartOnly: false, capuOnly: false, selectedRating: null, search: '' };
+let _posterCache = {};
+
+// ── Rating scale from user preferences ──────────────────────
+const HIST_RATING_SCALE = (function () {
+  try {
+    const prefs = (typeof USER_PREFERENCES !== 'undefined') ? USER_PREFERENCES : {};
+    return parseInt(prefs.ratingScale) === 10 ? 10 : 5;
+  } catch (e) { return 5; }
+})();
+
+const HIST_ALLOW_HALF = (function () {
+  try {
+    const prefs = (typeof USER_PREFERENCES !== 'undefined') ? USER_PREFERENCES : {};
+    return prefs.halfPoints === true || prefs.halfPoints === 'true';
+  } catch (e) { return false; }
+})();
+
+/* ════════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════════ */
+const HIST_MONTHS = [
+  'Janvier','Février','Mars','Avril','Mai','Juin',
+  'Juillet','Août','Septembre','Octobre','Novembre','Décembre'
+];
+
+const HIST_EDGE = {
+  0: 'var(--theme-border)',
+  1: '#e74c3c',
+  2: '#e67e22',
+  3: '#f1c40f',
+  4: '#2ecc71',
+  5: '#3498db',
+  // extend to 10 if using a 10-point scale:
+  6: '#1abc9c',
+  7: '#9b59b6',
+  8: '#2980b9',
+  9: '#27ae60',
+  10: '#8e44ad'
+};
+
+/* ════════════════════════════════════════════════
+   ENTRY POINT
+════════════════════════════════════════════════ */
+function loadHistory () {
+  const loader  = document.getElementById('hist-loader');
+  const list    = document.getElementById('hist-film-list');
+  const bar     = document.getElementById('hist-bar');
+  const hero    = document.getElementById('hist-hero');
+  const heroSk  = document.getElementById('hist-hero-skel');
+
+  loader.style.display = 'block';
+  list.innerHTML       = '';
+  bar.style.display    = 'none';
+  hero.style.display   = 'none';
+  heroSk.style.display = 'block';
+
+  google.script.run
+    .withSuccessHandler(d => {
+      loader.style.display = 'none';
+      heroSk.style.display = 'none';
+      if (!d || Object.keys(d).length === 0) {
+        list.innerHTML = histEmptyHTML('Aucun historique trouvé.');
+        return;
+      }
+      _histRaw = d;
+      histBuildDropdown();
+      histSetupFilters();
+      histShowYear('all');
+    })
+    .withFailureHandler(e => {
+      loader.style.display = 'none';
+      heroSk.style.display = 'none';
+      list.innerHTML = `<div class="hist-empty" style="color:var(--theme-error)">Erreur : ${e.message || 'Inconnue'}</div>`;
+    })
+    .getFilmsGroupedByYear();
+}
+
+/* ════════════════════════════════════════════════
+   DROPDOWN
+════════════════════════════════════════════════ */
+function histBuildDropdown () {
+  const sel = document.getElementById('hist-year-select');
+  sel.innerHTML = '<option value="all">Toutes les années</option>';
+  const years = Object.keys(_histRaw).sort((a, b) => {
+    if (a === 'Unknown') return 1;
+    if (b === 'Unknown') return -1;
+    return Number(b) - Number(a);
+  });
+  years.forEach(y => {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    sel.appendChild(o);
+  });
+  sel.value    = 'all';
+  sel.onchange = () => { _histYear = sel.value; histApplyFilters(); };
+  document.getElementById('hist-bar').style.display = 'block';
+}
+
+/* ════════════════════════════════════════════════
+   BUILD STAR PILLS DYNAMICALLY
+════════════════════════════════════════════════ */
+function histBuildStarPills () {
+  const container = document.getElementById('hist-star-pills');
+  if (!container) return;
+
+  const starSVG = `<span class="pill-icon"><svg width="11" height="11" viewBox="0 0 24 24" fill="var(--theme-star-filled)"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span>`;
+
+  let html = '';
+  for (let i = 1; i <= HIST_RATING_SCALE; i++) {
+    html += `<button class="hist-pill star-pill" data-rating="${i}" aria-label="${i} étoile${i > 1 ? 's' : ''}" style="margin-right:6px">${starSVG}${i}</button>`;
+  }
+  container.innerHTML = html;
+  container.style.display = 'flex';
+  container.style.alignItems = 'center';
+  container.style.gap = '0';
+}
+
+/* ════════════════════════════════════════════════
+   FILTER WIRING
+════════════════════════════════════════════════ */
+function histSetupFilters () {
+  // Build pills first
+  histBuildStarPills();
+
+  document.getElementById('hist-search').addEventListener('input', function () {
+    _histFilters.search = this.value.toLowerCase().trim();
+    histApplyFilters();
+  });
+
+  // Star pills (delegated, since they're dynamically created)
+  document.getElementById('hist-star-pills').addEventListener('click', function (e) {
+    const btn = e.target.closest('.hist-pill.star-pill');
+    if (!btn) return;
+    const r = parseInt(btn.dataset.rating);
+    if (_histFilters.selectedRating === r) {
+      _histFilters.selectedRating = null;
+      btn.classList.remove('active');
+    } else {
+      document.querySelectorAll('#hist-star-pills .hist-pill.star-pill').forEach(b => b.classList.remove('active'));
+      _histFilters.selectedRating = r;
+      btn.classList.add('active');
+    }
+    histApplyFilters();
+  });
+
+  document.getElementById('hist-heart-pill').addEventListener('click', function () {
+    _histFilters.heartOnly = !_histFilters.heartOnly;
+    this.classList.toggle('active', _histFilters.heartOnly);
+    histApplyFilters();
+  });
+
+  document.getElementById('hist-capu-pill').addEventListener('click', function () {
+    _histFilters.capuOnly = !_histFilters.capuOnly;
+    this.classList.toggle('active', _histFilters.capuOnly);
+    histApplyFilters();
+  });
+
+  const sortEl = document.getElementById('hist-sort');
+  const doSort = () => {
+    _histSort = _histSort === 'desc' ? 'asc' : 'desc';
+    document.getElementById('hist-sort-icon').textContent = _histSort === 'desc' ? '↓' : '↑';
+    histApplyFilters();
+  };
+  sortEl.addEventListener('click', doSort);
+  sortEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); doSort(); }
+  });
+}
+
+/* ════════════════════════════════════════════════
+   APPLY + MAIN RENDER
+════════════════════════════════════════════════ */
+function histApplyFilters () { histShowYear(_histYear); }
+
+function histShowYear (year) {
+  _histYear = year;
+  const list = document.getElementById('hist-film-list');
+  list.innerHTML = '';
+
+  let films = [];
+  if (year === 'all') {
+    Object.values(_histRaw).forEach(a => { films = films.concat(a); });
+  } else {
+    films = [...(_histRaw[year] || [])];
+  }
+
+  /* Filters */
+  /* Filters */
+  if (_histFilters.heartOnly) films = films.filter(f => histTruthy(f.coupDeCoeur));
+  if (_histFilters.capuOnly)  films = films.filter(f => histTruthy(f.capucines));
+  if (_histFilters.selectedRating !== null) {
+    films = films.filter(f => {
+      const n = parseFloat(f.note);
+      if (HIST_ALLOW_HALF) {
+        // Match the full integer band: e.g. "3" matches 2.5, 3.0
+        return n >= _histFilters.selectedRating - 0.5 && n < _histFilters.selectedRating + 0.5
+            || n === _histFilters.selectedRating;
+      }
+      return Math.round(n) === _histFilters.selectedRating;
+    });
+  }
+  if (_histFilters.search) {
+    films = films.filter(f => f.titre && f.titre.toLowerCase().includes(_histFilters.search));
+  }
+
+  /* Sort */
+  films.sort((a, b) => {
+    try {
+      const da = histParseDate(a.dateComplete);
+      const db = histParseDate(b.dateComplete);
+      return _histSort === 'asc' ? da - db : db - da;
+    } catch (e) { return 0; }
+  });
+
+  /* Hero */
+  histAnimateHero(films.length, films);
+
+  if (films.length === 0) {
+    list.innerHTML = histEmptyHTML('Aucun film ne correspond aux filtres.');
+    return;
+  }
+
+  /* Group by month → render */
+  const groups = histGroupByMonth(films);
+  let globalIdx = 0;
+  groups.forEach(({ label, films: gf }) => {
+    const grp = document.createElement('div');
+    grp.className = 'hist-month-group';
+
+    const hdr = document.createElement('div');
+    hdr.className = 'hist-month-header';
+    hdr.innerHTML = `
+      <span class="hist-month-label">${label}</span>
+      <div class="hist-month-line"></div>
+      <span class="hist-month-count">${gf.length} film${gf.length > 1 ? 's' : ''}</span>`;
+    grp.appendChild(hdr);
+
+    gf.forEach(f => { grp.appendChild(histBuildCard(f, globalIdx++)); });
+    list.appendChild(grp);
+  });
+
+  histQueuePosters(films);
+}
+
+/* ════════════════════════════════════════════════
+   HERO COUNT-UP + SECONDARY STATS
+════════════════════════════════════════════════ */
+function histAnimateHero (target, films) {
+  const hero  = document.getElementById('hist-hero');
+  const numEl = document.getElementById('hist-hero-num');
+  if (!hero || !numEl) return;
+  hero.style.display = 'flex';
+
+  const start = parseInt(numEl.textContent) || 0;
+  const dur = 550, fps = 60, steps = Math.round(dur / (1000 / fps));
+  let step = 0;
+  const ease = t => 1 - Math.pow(2, -10 * t);
+  const timer = setInterval(() => {
+    step++;
+    numEl.textContent = Math.round(start + (target - start) * ease(Math.min(step / steps, 1)));
+    if (step >= steps) { numEl.textContent = target; clearInterval(timer); }
+  }, 1000 / fps);
+
+  histUpdateHeroStats(films || []);
+}
+
+function histUpdateHeroStats (films) {
+  const statsEl = document.getElementById('hist-hero-stats');
+  if (!statsEl) return;
+  if (films.length === 0) { statsEl.innerHTML = ''; return; }
+
+  const rated      = films.filter(f => parseFloat(f.note) > 0);
+  const avgRating  = rated.length
+    ? (rated.reduce((s, f) => s + parseFloat(f.note), 0) / rated.length).toFixed(1)
+    : null;
+  const heartCount = films.filter(f => histTruthy(f.coupDeCoeur)).length;
+  const capuCount  = films.filter(f => histTruthy(f.capucines)).length;
+
+  const parts = [];
+
+  if (avgRating) {
+    parts.push(`<span class="hist-hero-stat">
+      <span class="hist-hero-stat-icon">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--theme-star-filled)">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      </span>
+      <span class="hist-hero-stat-value">${avgRating}</span>
+      <span>moy.</span>
+    </span>`);
+  }
+
+  if (heartCount > 0) {
+    if (parts.length) parts.push('<span class="hist-hero-stat-dot"></span>');
+    parts.push(`<span class="hist-hero-stat">
+      <span class="hist-hero-stat-icon">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--theme-error)">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+      </span>
+      <span class="hist-hero-stat-value">${heartCount}</span>
+      <span>coup${heartCount > 1 ? 's' : ''} de cœur</span>
+    </span>`);
+  }
+
+  if (capuCount > 0) {
+    if (parts.length) parts.push('<span class="hist-hero-stat-dot"></span>');
+    parts.push(`<span class="hist-hero-stat">
+      <span class="hist-hero-stat-icon">🌸</span>
+      <span class="hist-hero-stat-value">${capuCount}</span>
+      <span>Capucines</span>
+    </span>`);
+  }
+
+  statsEl.innerHTML = parts.join('');
+}
+
+/* ════════════════════════════════════════════════
+   GROUP BY MONTH
+════════════════════════════════════════════════ */
+function histGroupByMonth (films) {
+  const map = new Map();
+  films.forEach(f => {
+    let key = 'z-unknown', label = 'Date inconnue';
+    const p = histSplitDate(f.dateComplete);
+    if (p) {
+      const mo = parseInt(p.mo) - 1;
+      key   = `${p.yr}-${p.mo}`;
+      label = `${HIST_MONTHS[mo] || '?'} ${p.yr}`;
+    }
+    if (!map.has(key)) map.set(key, { label, films: [] });
+    map.get(key).films.push(f);
+  });
+  return Array.from(map.values());
+}
+
+/* ════════════════════════════════════════════════
+   BUILD CARD
+   Title row order: [heart?] [title] [capu-badge?]
+════════════════════════════════════════════════ */
+function histBuildCard (f, idx) {
+  const card = document.createElement('div');
+  card.className = 'hist-film-card';
+  card.style.animationDelay = `${Math.min(idx, 25) * 0.018}s`;
+
+  const isCap   = histTruthy(f.capucines);
+  const isHeart = histTruthy(f.coupDeCoeur);
+  const rating  = parseFloat(f.note) || 0;
+  const edge    = HIST_EDGE[Math.round(rating)] || 'var(--theme-border)';
+
+  let dateStr = '';
+  const p = histSplitDate(f.dateComplete);
+  if (p) dateStr = `${p.dd}/${p.mo}/${p.yr}`;
+
+  const genre = f.genre ? histEsc(f.genre) : '';
+
+  card.innerHTML = `
+    <div class="hist-rating-edge" style="background:${edge}"></div>
+    <div class="hist-poster-wrap" data-titre="${histEsc(f.titre || '')}">
+      <div class="hist-poster-placeholder">🎬</div>
+    </div>
+    <div class="hist-card-info">
+      <div class="hist-card-title-row">
+        ${isHeart ? `<span class="hist-card-heart-icon"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>` : ''}
+        <span class="hist-card-title">${histEsc(f.titre || 'Sans titre')}</span>
+      </div>
+      <div class="hist-card-meta-row">
+        ${dateStr ? `<span class="hist-card-date">${dateStr}</span>` : ''}
+        ${dateStr && genre ? `<span class="hist-card-sep">·</span>` : ''}
+        ${genre    ? `<span class="hist-card-genre">${genre}</span>` : ''}
+        ${isCap ? `<span class="hist-card-sep" style="opacity:0.25">·</span><img src="https://i.imgur.com/lg1bkrO.png" alt="Capucines" class="hist-capu-badge">` : ''}
+      </div>
+    </div>
+    <div class="hist-card-stars">${histStarSVG(rating)}</div>`;
+
+  return card;
+}
+
+/* ════════════════════════════════════════════════
+   POSTER LOADING —
+════════════════════════════════════════════════ */
+const POSTER_BATCH_SIZE = 20; // titles per Apps Script call
+
+function histQueuePosters(films) {
+  const needed = [];
+
+  films.forEach(f => {
+    const titre = f.titre;
+    if (!titre) return;
+
+    if (_posterCache[titre]) {
+      // Already cached — apply directly to DOM right now
+      document.querySelectorAll('.hist-poster-wrap').forEach(wrap => {
+        if (wrap.dataset.titre === titre) {
+          wrap.innerHTML = `<img src="${_posterCache[titre]}" alt="" loading="lazy">`;
+        }
+      });
+    } else if (!_posterCache.hasOwnProperty(titre)) {
+      // Not cached at all — queue for fetching
+      needed.push(titre);
+    }
+    // If cached as null, skip silently (no poster exists)
+  });
+
+  const unique = [...new Set(needed)];
+  if (!unique.length) return;
+
+  for (let i = 0; i < unique.length; i += POSTER_BATCH_SIZE) {
+    histFetchPosterChunk(unique.slice(i, i + POSTER_BATCH_SIZE));
+  }
+}
+
+function histFetchPosterChunk(titres) {
+  if (typeof google === 'undefined' || !google.script) return;
+
+  google.script.run
+    .withSuccessHandler(urlMap => {
+      if (!urlMap) return;
+
+      // Apply every result that came back
+      Object.entries(urlMap).forEach(([titre, url]) => {
+        _posterCache[titre] = url || null; // cache even nulls to avoid re-fetching
+
+        if (!url) return;
+
+        // Update every card whose poster-wrap matches this title
+        document.querySelectorAll('.hist-poster-wrap').forEach(wrap => {
+          if (wrap.dataset.titre === titre) {
+            wrap.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
+          }
+        });
+      });
+    })
+    .withFailureHandler(err => {
+      console.warn('histFetchPosterChunk error:', err);
+    })
+    .getMoviePosterUrls(titres);
+}
+
+/* ════════════════════════════════════════════════
+   STAR SVG
+════════════════════════════════════════════════ */
+function histStarSVG (rating) {
+  const scale     = HIST_RATING_SCALE;
+  const allowHalf = HIST_ALLOW_HALF;
+  const cF = 'var(--theme-star-filled)', cE = 'rgba(128,128,128,0.22)';
+  let s = '';
+  if (allowHalf) {
+    s += `<svg style="width:0;height:0;position:absolute"><defs><linearGradient id="hHalf"><stop offset="50%" stop-color="${cF}"/><stop offset="50%" stop-color="${cE}"/></linearGradient></defs></svg>`;
+  }
+  for (let i = 0; i < scale; i++) {
+    let fill = cE;
+    if (i < Math.floor(rating)) fill = cF;
+    else if (allowHalf && i < rating && rating % 1 !== 0) fill = 'url(#hHalf)';
+    s += `<svg viewBox="0 0 24 24" style="width:${scale === 10 ? '10px' : '13px'};height:${scale === 10 ? '10px' : '13px'};display:block"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="${fill}"/></svg>`;
+  }
+  return s;
+}
+
+/* ════════════════════════════════════════════════
+   DATE HELPERS
+════════════════════════════════════════════════ */
+function histSplitDate (raw) {
+  if (!raw) return null;
+  const m = String(raw).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return { dd: m[1].padStart(2,'0'), mo: m[2].padStart(2,'0'), yr: m[3] };
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) return {
+    dd: String(d.getDate()).padStart(2,'0'),
+    mo: String(d.getMonth() + 1).padStart(2,'0'),
+    yr: String(d.getFullYear())
+  };
+  return null;
+}
+
+function histParseDate (raw) {
+  const p = histSplitDate(raw);
+  if (!p) return new Date(0);
+  return new Date(`${p.yr}-${p.mo}-${p.dd}`);
+}
+
+/* ════════════════════════════════════════════════
+   UTILS
+════════════════════════════════════════════════ */
+function histTruthy (v) { return v === true || v === 1 || v === '1'; }
+
+function histEsc (t) {
+  return String(t || '').replace(/[&<>"']/g, m =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;'}[m]));
+}
+
+function histEmptyHTML (msg) {
+  return `<div class="hist-empty">
+    <svg viewBox="0 0 64 64" fill="currentColor">
+      <path d="M32 8C18.745 8 8 18.745 8 32s10.745 24 24 24 24-10.745 24-24S45.255 8 32 8zm0 4c11.046 0 20 8.954 20 20s-8.954 20-20 20-20-8.954-20-20S20.954 12 32 12z"/>
+      <circle cx="24" cy="28" r="3"/><circle cx="40" cy="28" r="3"/>
+      <path d="M24 38c2-4 6-6 8-6s6 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+    </svg>
+    <p>${msg}</p>
+  </div>`;
+}
+</script>
