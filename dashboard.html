@@ -1,0 +1,2050 @@
+<!-- ============================================================
+     DASHBOARD — "MISSION CONTROL" — Design-System Integrated
+     Uses --theme-* CSS variables from the main app.
+     Fonts: Inter (matches app), with Inter Alternates for display nums.
+     ============================================================ -->
+
+<style>
+/* ════════════════════════════════════════════════════════════════
+   DASHBOARD SCOPE — maps app tokens → local aliases
+   ════════════════════════════════════════════════════════════════ */
+.mc-dash {
+  --mc-font-display : 'Inter Alternates', 'Inter', sans-serif;
+  --mc-font-body    : 'Inter', sans-serif;
+  --mc-accent       : var(--theme-primary);
+  --mc-accent-dim   : var(--theme-primary-muted);
+  --mc-accent-glow  : var(--theme-primary-muted);
+  --mc-text         : var(--theme-text);
+  --mc-text-dim     : var(--theme-text-secondary);
+  --mc-text-faint   : var(--theme-text-disabled);
+  --mc-surface      : var(--theme-surface-base);
+  --mc-surface-raised : var(--theme-surface-raised);
+  --mc-border       : var(--theme-border);
+  --mc-border-strong: var(--theme-border-strong);
+  --mc-border-accent: var(--theme-primary-muted);
+  --mc-bg           : var(--theme-bg);
+  --mc-green        : var(--theme-success);
+  --mc-red          : var(--theme-error);
+  --mc-shadow       : var(--theme-shadow);
+  --mc-shadow-strong: var(--theme-shadow-strong);
+  --mc-star         : var(--theme-star-filled);
+  --mc-radius       : 18px;
+  --mc-radius-sm    : 12px;
+  font-family: var(--mc-font-body);
+  color: var(--mc-text);
+  padding: 0;
+  margin: 0 auto;
+  max-width: 1100px;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ZONE 1 — HERO
+   ════════════════════════════════════════════════════════════════ */
+.mc-hero {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  border-radius: 0;
+}
+.mc-hero-poster {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 20%;
+  background-color: var(--theme-bg);
+  transition: background-image 1.2s ease;
+  will-change: transform;
+}
+.mc-hero-poster::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom,rgba(0,0,0,.15) 0%,rgba(0,0,0,.35) 35%,rgba(0,0,0,.72) 68%,var(--theme-bg) 100%);
+}
+.mc-hero-poster::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.90' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+  background-size: 128px;
+  opacity: .45;
+  z-index: 1;
+  pointer-events: none;
+}
+.mc-hero-content {
+  position: relative;
+  z-index: 2;
+  padding: 80px 16px 24px;
+}
+.mc-hero-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.mc-filter-select {
+  background: var(--theme-input-bg);
+  border: 1px solid var(--theme-input-border);
+  border-radius: 20px;
+  color: var(--mc-text);
+  font-family: var(--mc-font-body);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 30px 7px 14px;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  outline: none;
+  backdrop-filter: blur(10px);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888888' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color .2s;
+}
+
+.mc-filter-select:hover,
+.mc-filter-select:focus { border-color: var(--mc-accent); }
+.mc-filter-select option { background: var(--theme-bg); color: var(--mc-text); }
+.mc-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+@media (max-width: 480px) { .mc-hero-stats { grid-template-columns: repeat(2, 1fr); } }
+.mc-hstat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 14px 16px;
+  /* Surface token instead of hardcoded dark rgba */
+  background: var(--mc-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius-sm);
+  position: relative;
+  overflow: hidden;
+  transition: border-color .25s;
+}
+
+.mc-hstat:hover { border-color: var(--mc-accent); }
+
+.mc-hstat:first-child {
+  border-color: var(--mc-accent);
+  background: var(--mc-accent-dim);
+}
+.mc-hstat-num {
+  font-family: var(--mc-font-display);
+  font-size: clamp(28px, 6vw, 48px);
+  font-weight: 800;
+  line-height: .95;
+  /* Use main text token — readable on any theme */
+  color: var(--mc-text);
+  letter-spacing: -.02em;
+}
+
+.mc-hstat:first-child .mc-hstat-num { color: var(--mc-accent); }
+
+.mc-hstat-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--mc-text-dim);
+  margin-top: 5px;
+  line-height: 1.3;
+}
+.mc-hstat-yoy {
+  position: absolute;
+  top: 8px; right: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.mc-hstat-yoy.up       { color: var(--mc-green); background: color-mix(in srgb, var(--mc-green) 15%, transparent); }
+.mc-hstat-yoy.down     { color: var(--mc-red);   background: color-mix(in srgb, var(--mc-red)   15%, transparent); }
+.mc-hstat-yoy.inv-up   { color: var(--mc-red);   background: color-mix(in srgb, var(--mc-red)   15%, transparent); }
+.mc-hstat-yoy.inv-down { color: var(--mc-green); background: color-mix(in srgb, var(--mc-green) 15%, transparent); }
+
+/* ════════════════════════════════════════════════════════════════
+   TAPE STRIP
+   ════════════════════════════════════════════════════════════════ */
+.mc-tape-wrap { overflow: visible; padding: 0 0 8px; margin-top: 12px; }
+.mc-tape-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  margin-bottom: 10px;
+}
+.mc-tape-title {
+  font-family: var(--mc-font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--mc-accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mc-tape-title::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--mc-accent); border-radius: 2px; }
+.mc-tape-scroller {
+  position: relative;
+  overflow: visible;
+  -webkit-mask-image: linear-gradient(to right, transparent 0px, black 44px, black calc(100% - 44px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0px, black 44px, black calc(100% - 44px), transparent 100%);
+}
+.mc-tape-track {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px 26px;
+  overflow-x: auto;
+  overflow-y: visible;
+  touch-action: pan-x;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  height: auto;
+}
+.mc-tape-track::-webkit-scrollbar { display: none; }
+.mc-tape-item {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  overflow: visible;
+  cursor: pointer;
+  position: relative;
+}
+.mc-tape-img {
+  width: 68px;
+  height: 102px;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1.5px solid var(--mc-border);
+  position: relative;
+  background: var(--mc-surface);
+  transition: transform .3s cubic-bezier(.22,1,.36,1), border-color .25s, box-shadow .3s;
+  flex-shrink: 0;
+  z-index: 2;
+}
+.mc-tape-item:hover .mc-tape-img {
+  transform: translateY(-6px) scale(1.06);
+  border-color: var(--mc-accent);
+  box-shadow: 0 12px 32px var(--mc-shadow), 0 0 0 1.5px var(--mc-accent);
+}
+.mc-tape-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mc-tape-item.no-poster .mc-tape-img { display: flex; align-items: center; justify-content: center; font-size: 26px; background: var(--mc-accent-dim); }
+.mc-tape-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,.9) 0%, transparent 100%);
+  color: #fff;
+  font-size: 7.5px;
+  font-family: var(--mc-font-body);
+  font-weight: 600;
+  padding: 18px 4px 5px;
+  line-height: 1.25;
+  opacity: 0;
+  transition: opacity .22s;
+  text-align: center;
+  pointer-events: none;
+}
+.mc-tape-item:hover .mc-tape-overlay { opacity: 1; }
+.mc-tape-heart { position: absolute; top: 5px; left: 5px; font-size: 11px; line-height: 1; filter: drop-shadow(0 1px 3px rgba(0,0,0,.7)); z-index: 2; }
+.mc-tape-rating {
+  background: var(--mc-accent);
+  color: var(--theme-text-on-accent);
+  font-family: var(--mc-font-body);
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: -14px;
+  border-radius: 20px;
+  padding: 2px 8px;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  flex-shrink: 0;
+  z-index: 3;
+  transition: transform .3s cubic-bezier(.22,1,.36,1);
+}
+.mc-tape-item:hover .mc-tape-rating { transform: translateY(-6px); }
+
+/* ════════════════════════════════════════════════════════════════
+   ZONE 2 — MAIN STAGE
+   ════════════════════════════════════════════════════════════════ */
+.mc-stage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 0 12px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+@media (min-width: 900px) { .mc-stage { gap: 18px; padding: 0 18px; margin-bottom: 18px; } }
+@media (max-width: 640px) { .mc-stage { grid-template-columns: 1fr; } }
+.mc-card {
+  background: var(--mc-surface);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--mc-border);
+  border-radius: var(--mc-radius);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .3s, box-shadow .3s, transform .3s;
+}
+.mc-card:hover { border-color: var(--mc-accent); transform: translateY(-2px); box-shadow: var(--mc-shadow-strong); }
+.mc-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--mc-accent-dim) 50%, transparent 100%);
+  opacity: 0;
+  transition: opacity .3s;
+}
+.mc-card:hover::before { opacity: 1; }
+.mc-card-title {
+  font-family: var(--mc-font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--mc-accent);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mc-card-title::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--mc-accent); border-radius: 2px; }
+.mc-chart-card { grid-column: 1 / -1; }
+@media (max-width: 640px) { .mc-chart-card { grid-column: 1; } }
+.mc-toggle-row { display: flex; gap: 6px; margin-bottom: 14px; }
+.mc-toggle-btn {
+  font-family: var(--mc-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--mc-border);
+  background: var(--mc-surface);          /* was: transparent */
+  color: var(--mc-text-dim);
+  cursor: pointer;
+  transition: all .2s;
+  letter-spacing: .3px;
+}
+.mc-toggle-btn.active {
+  background: var(--mc-accent-dim);
+  border-color: var(--mc-accent);
+  color: var(--mc-accent);
+}
+#mc-line-chart text {
+  fill: var(--mc-text-faint, rgba(128,128,128,.6));
+}
+#mc-gauge-track {
+  stroke: var(--mc-surface-raised) !important;
+}
+.mc-gauge-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.mc-gauge-svg { width: 170px; height: 170px; }
+.mc-gauge-center { text-align: center; margin-top: -10px; }
+.mc-gauge-value { font-family: var(--mc-font-display); font-size: 40px; font-weight: 800; color: var(--mc-accent); line-height: 1; letter-spacing: -.02em; }
+.mc-gauge-sub { font-size: 11px; color: var(--mc-text-dim); letter-spacing: .5px; margin-top: 2px; }
+.mc-rating-bars { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.mc-rbar-row { display: flex; align-items: center; gap: 10px; }
+.mc-rbar-label { font-family: var(--mc-font-display); font-size: 14px; font-weight: 700; color: var(--mc-text-dim); width: 26px; text-align: right; flex-shrink: 0; }
+.mc-rbar-track {
+  flex: 1;
+  height: 7px;
+  background: var(--mc-surface-raised);
+  border-radius: 4px;
+  overflow: hidden;
+  /* Add a border so the empty track has definition on light themes */
+  box-shadow: inset 0 0 0 1px var(--mc-border);
+}
+.mc-rbar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--mc-accent);
+  width: 0;
+  opacity: 1;                             /* was: .85 — remove so token colour is pure */
+  transition: width .9s cubic-bezier(.22,1,.36,1);
+}
+.mc-rbar-count { font-size: 11px; color: var(--mc-text-dim); width: 24px; text-align: right; flex-shrink: 0; }
+
+/* ════════════════════════════════════════════════════════════════
+   ZONE 3 — SUPPORTING CAST
+   ════════════════════════════════════════════════════════════════ */
+.mc-support {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 0 12px;
+  margin-bottom: 12px;
+}
+@media (min-width: 900px) { .mc-support { gap: 18px; padding: 0 18px; margin-bottom: 18px; } }
+@media (max-width: 900px) { .mc-support { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .mc-support { grid-template-columns: 1fr; } }
+.mc-genre-list { display: flex; flex-direction: column; gap: 8px; }
+.mc-genre-row { display: flex; flex-direction: column; gap: 4px; }
+.mc-genre-meta { display: flex; justify-content: space-between; align-items: baseline; }
+.mc-genre-name { font-size: 12px; font-weight: 500; color: var(--mc-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%; }
+.mc-genre-pct { font-family: var(--mc-font-display); font-size: 13px; font-weight: 700; color: var(--mc-text-dim); }
+.mc-genre-track {
+  height: 5px;
+  background: var(--mc-surface-raised);
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--mc-border);
+}
+.mc-genre-fill { height: 100%; border-radius: 3px; width: 0; transition: width 1s cubic-bezier(.22,1,.36,1); }
+.mc-lang-grid { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+.mc-lang-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid;                      /* was: 1.5px — slightly bolder */
+  transition: transform .25s;
+  cursor: default;
+}
+.mc-lang-bubble:hover { transform: scale(1.08); }
+.mc-lang-code {
+  font-family: var(--mc-font-display);
+  font-weight: 800;
+  line-height: 1;
+}
+.mc-lang-pct {
+  font-size: 9px;
+  font-weight: 600;
+  opacity: .8;                            /* was: .7 — a touch more visible */
+}
+.mc-streak-card {
+  background: rgba(255,255,255,.96) !important;
+  border: none !important;
+  border-radius: var(--mc-radius);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  box-shadow: var(--mc-shadow-strong);
+}
+.mc-streak-head { background: var(--theme-bg); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--mc-accent-dim); }
+.mc-streak-head-title { font-size: 9px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--mc-accent); }
+.mc-streak-flame { font-size: 16px; animation: mc-flicker 2.5s infinite alternate; }
+@keyframes mc-flicker {
+  0%   { transform: scale(1) rotate(-2deg); filter: brightness(1); }
+  50%  { transform: scale(1.08) rotate(1deg); filter: brightness(1.2); }
+  100% { transform: scale(.95) rotate(-1deg); filter: brightness(.9); }
+}
+.mc-streak-body { display: grid; grid-template-columns: 1fr 1fr; padding: 14px 16px 16px; }
+.mc-streak-item { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 8px; }
+.mc-streak-item:first-child { border-right: 1.5px solid rgba(0,0,0,.10); }
+.mc-streak-lbl-top { font-size: 9px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: #888; margin-bottom: 2px; }
+.mc-streak-num { font-family: var(--mc-font-display); font-size: 44px; font-weight: 800; color: #1a1a2e; line-height: 1; letter-spacing: -.02em; }
+.mc-streak-unit { font-size: 11px; font-weight: 600; color: #333; margin-top: 1px; }
+.mc-streak-date { font-size: 9px; color: #999; margin-top: 5px; }
+.mc-streak-date.urgent { color: #e8453c; font-weight: 700; animation: mc-pulse 1.8s infinite; }
+@keyframes mc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+.mc-divider { height: 1px; background: var(--mc-border); }
+
+/* ════════════════════════════════════════════════════════════════
+   ZONE 4 — CINÉASTE ID CARD (FLIP)
+   ════════════════════════════════════════════════════════════════ */
+
+
+/* ── Flip wrapper ── */
+.mc-id-flip-wrap {
+  perspective: 1400px;
+}
+
+.mc-id-flipper {
+  position: relative;
+  width: 100%;
+  transform-style: preserve-3d;
+  transition: transform .75s cubic-bezier(.4, 0, .2, 1);
+}
+
+.mc-id-flip-wrap.is-flipped .mc-id-flipper {
+  transform: rotateY(180deg);
+}
+
+.mc-id-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: var(--mc-radius);
+  overflow: hidden;
+}
+
+.mc-id-face-back {
+  transform: rotateY(180deg);
+  background: var(--mc-bg);
+  border: 1px solid var(--mc-border);
+}
+
+/* ── Main card shell ── */
+.mc-id-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--mc-radius);
+  overflow: hidden;
+  background: var(--mc-bg);
+  border: 1px solid var(--mc-border);
+  font-family: var(--mc-font-body);
+  backdrop-filter: blur(20px);
+  box-sizing: border-box;
+}
+
+.mc-id-flip-wrap:not(.is-flipped) .mc-id-face-front {
+  transition: box-shadow .3s, border-color .3s;
+}
+.mc-id-flip-wrap:not(.is-flipped):hover .mc-id-face-front .mc-id-card {
+  border-color: var(--mc-accent);
+  box-shadow: var(--mc-shadow-strong);
+}
+
+/* ── Flip trigger button ── */
+.mc-id-flip-btn {
+  position: absolute;
+  top: 20px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  /* Uses surface tokens so it reads on both light and dark */
+  background: var(--mc-surface-raised);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--mc-border-strong);
+  border-radius: 20px;
+  color: var(--mc-text-dim);
+  font-family: var(--mc-font-body);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.mc-id-flip-btn:hover {
+  background: var(--mc-accent);
+  border-color: var(--mc-accent);
+  color: var(--theme-text-on-accent);
+}
+
+.mc-id-flip-wrap.is-flipped .mc-id-face-front .mc-id-flip-btn {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Film-strip perforations ── */
+.mc-id-perforations {
+  display: flex;
+  gap: 0;
+  padding: 0 4px;
+  background: var(--mc-accent);
+  overflow: hidden;
+  height: 14px;
+  align-items: center;
+}
+.mc-id-perf-hole {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--mc-bg);
+  flex-shrink: 0;
+  margin: 0 3px;
+}
+
+/* ── Card body layout ── */
+.mc-id-body {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  flex: 1;
+}
+@media (max-width: 640px) { .mc-id-body { grid-template-columns: 1fr; } }
+
+/* ── Left panel ── */
+.mc-id-left {
+  /* Tinted with accent-muted so it adapts to light/dark themes */
+  background: var(--mc-accent-dim);
+  border-right: 1px dashed var(--mc-border-accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 16px;
+  position: relative;
+  overflow: hidden;
+}
+/* Subtle diagonal texture — uses currentColor so it works everywhere */
+.mc-id-left::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0px, transparent 8px,
+    color-mix(in srgb, currentColor 4%, transparent) 8px,
+    color-mix(in srgb, currentColor 4%, transparent) 9px
+  );
+  pointer-events: none;
+}
+
+.mc-id-emoji {
+  font-size: 52px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 14px rgba(0,0,0,.3));
+  position: relative;
+  z-index: 1;
+  animation: mc-id-float 4s ease-in-out infinite;
+}
+@keyframes mc-id-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+.mc-id-axis2-badge {
+  position: relative;
+  z-index: 1;
+  background: var(--mc-accent);
+  color: var(--theme-text-on-accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 20px;
+  text-align: center;
+  max-width: 140px;
+  line-height: 1.4;
+  box-shadow: 0 2px 10px rgba(0,0,0,.2);
+}
+
+.mc-id-modifiers {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+.mc-id-mod-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  /* Surface token: readable on both dark and light backgrounds */
+  background: var(--mc-surface-raised);
+  border: 1px solid var(--mc-border);
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--mc-text-dim);
+  letter-spacing: .5px;
+  white-space: nowrap;
+}
+.mc-id-mod-badge span:first-child { font-size: 12px; }
+
+/* ── Right panel ── */
+.mc-id-right {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 22px;
+  gap: 14px;
+}
+.mc-id-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mc-id-label-block { display: flex; flex-direction: column; gap: 3px; }
+.mc-id-eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--mc-accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mc-id-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 12px;
+  background: var(--mc-accent);
+  border-radius: 2px;
+}
+.mc-id-persona-name {
+  font-family: var(--mc-font-display);
+  font-size: clamp(20px, 4vw, 26px);
+  font-weight: 800;
+  color: var(--mc-text);
+  line-height: 1.05;
+  letter-spacing: -.02em;
+}
+.mc-id-persona-name em { color: var(--mc-accent); font-style: normal; }
+
+.mc-id-serial {
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mc-text-faint);
+  letter-spacing: 1px;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+.mc-id-divider { height: 1px; background: var(--mc-border); }
+
+.mc-id-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 20px;
+}
+@media (max-width: 400px) { .mc-id-fields { grid-template-columns: 1fr; } }
+.mc-id-field { display: flex; flex-direction: column; gap: 2px; }
+.mc-id-field-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--mc-text-faint);
+}
+.mc-id-field-value {
+  font-family: var(--mc-font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mc-text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mc-id-field-value.accent { color: var(--mc-accent); }
+
+.mc-id-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.mc-id-barcode { display: flex; align-items: flex-end; gap: 1.5px; height: 28px; }
+.mc-id-bar { background: var(--mc-text-faint); border-radius: 1px; width: 2px; }
+.mc-id-footer-text {
+  font-family: 'Courier New', monospace;
+  font-size: 8px;
+  color: var(--mc-text-faint);
+  letter-spacing: .8px;
+  text-align: right;
+  line-height: 1.6;
+}
+
+/* ── SOFT STATE ── */
+.mc-id-soft {
+  border-radius: var(--mc-radius);
+  overflow: hidden;
+  background: var(--mc-surface);
+  border: 1px dashed var(--mc-border);
+  font-family: var(--mc-font-body);
+}
+.mc-id-soft-perfs {
+  display: flex;
+  gap: 0;
+  padding: 0 4px;
+  background: var(--mc-border);
+  overflow: hidden;
+  height: 10px;
+  align-items: center;
+}
+.mc-id-soft-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 30px 24px;
+  text-align: center;
+}
+.mc-id-soft-icon { font-size: 36px; opacity: .5; }
+.mc-id-soft-title { font-size: 13px; font-weight: 600; color: var(--mc-text-dim); letter-spacing: .3px; }
+.mc-id-soft-sub {
+  font-size: 11px;
+  color: var(--mc-text-faint);
+  max-width: 260px;
+  line-height: 1.5;
+  margin-top: -8px;
+}
+.mc-id-soft-mods { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+/* ── RADAR VERSO ── */
+.mc-id-verso {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.mc-id-verso-perfs {
+  display: flex;
+  gap: 0;
+  padding: 0 4px;
+  background: var(--mc-accent);
+  overflow: hidden;
+  height: 14px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.mc-id-verso-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 0;
+  min-height: 0;
+  background: var(--mc-bg);
+}
+@media (max-width: 700px) {
+  .mc-id-verso-body { grid-template-columns: 1fr; }
+}
+
+.mc-id-radar-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: visible;
+}
+.mc-id-radar-svg {
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  overflow: visible;
+}
+
+/* ── Dimension panel (right side of verso) ── */
+.mc-id-dims {
+  border-left: 1px dashed var(--mc-border-accent);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 22px 24px;
+  gap: 10px;
+  /* Use accent-dim instead of raw rgba(255,255,255,…) */
+  background: var(--mc-accent-dim);
+  position: relative;
+  overflow: hidden;
+}
+.mc-id-dims::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0px, transparent 8px,
+    color-mix(in srgb, currentColor 3%, transparent) 8px,
+    color-mix(in srgb, currentColor 3%, transparent) 9px
+  );
+  pointer-events: none;
+}
+.mc-id-dims-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--mc-accent);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+}
+.mc-id-dims-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 12px;
+  background: var(--mc-accent);
+  border-radius: 2px;
+}
+.mc-id-dim-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+.mc-id-dim-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+.mc-id-dim-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.mc-id-dim-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  /* Use mc-text-dim so it adapts to theme lightness */
+  color: var(--mc-text-dim);
+  white-space: nowrap;
+}
+.mc-id-dim-bar-wrap {
+  height: 4px;
+  /* Semi-transparent surface: reads OK on both light and dark */
+  background: var(--mc-surface-raised);
+  border-radius: 2px;
+  position: relative;
+}
+/* Center notch */
+.mc-id-dim-bar-wrap::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 8px;
+  background: var(--mc-border-strong);
+  border-radius: 1px;
+  z-index: 2;
+}
+.mc-id-dim-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--mc-accent);
+  transition: width 1s cubic-bezier(.22,1,.36,1), left 1s cubic-bezier(.22,1,.36,1);
+}
+.mc-id-dim-endpoints {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  font-weight: 500;
+  /* Use faint text token instead of hardcoded rgba(255,255,255,.28) */
+  color: var(--mc-text-faint);
+  letter-spacing: .3px;
+  margin-top: 2px;
+}
+.mc-id-dim-score {
+  font-family: var(--mc-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mc-accent);
+  flex-shrink: 0;
+  width: 30px;
+  text-align: right;
+}
+
+/* ── Animations ── */
+@keyframes mc-id-reveal {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.mc-id-flip-wrap { animation: mc-id-reveal .6s cubic-bezier(.22,1,.36,1) both; }
+.mc-id-soft      { animation: mc-id-reveal .6s cubic-bezier(.22,1,.36,1) both; }
+
+/* ════════════════════════════════════════════════════════════════
+   LEGEND / SKELETON
+   ════════════════════════════════════════════════════════════════ */
+.mc-legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 10px; }
+.mc-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--mc-text-dim); }
+.mc-legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.mc-skeleton-wrap { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.mc-skel-hero { height: 340px; border-radius: 0 0 24px 24px; background: linear-gradient(90deg, var(--mc-surface) 25%, var(--mc-surface-raised) 50%, var(--mc-surface) 75%); background-size: 200% 100%; animation: mc-shimmer 1.5s infinite; margin: -12px -12px 0; }
+.mc-skel-row { display: grid; gap: 12px; }
+.mc-skel-row-2 { grid-template-columns: 1fr 1fr; }
+.mc-skel-row-3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 640px) { .mc-skel-row-2, .mc-skel-row-3 { grid-template-columns: 1fr; } }
+.mc-skel-block { border-radius: var(--mc-radius); background: linear-gradient(90deg, var(--mc-surface) 25%, var(--mc-surface-raised) 50%, var(--mc-surface) 75%); background-size: 200% 100%; animation: mc-shimmer 1.5s infinite; }
+@keyframes mc-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.mc-bottom-pad { height: 80px; }
+</style>
+
+<!-- ════════════════════════════════════════════════════════════════
+     HTML
+     ════════════════════════════════════════════════════════════════ -->
+<div class="mc-dash" id="mc-dash-root">
+
+  <div id="mc-skeleton" class="mc-skeleton-wrap">
+    <div class="mc-skel-hero"></div>
+    <div class="mc-skel-row mc-skel-row-2">
+      <div class="mc-skel-block" style="height:260px"></div>
+      <div class="mc-skel-block" style="height:260px"></div>
+    </div>
+    <div class="mc-skel-row mc-skel-row-3">
+      <div class="mc-skel-block" style="height:200px"></div>
+      <div class="mc-skel-block" style="height:200px"></div>
+      <div class="mc-skel-block" style="height:200px"></div>
+    </div>
+  </div>
+
+  <div id="mc-content" style="display:none">
+
+    <!-- ZONE 1: HERO -->
+    <div class="mc-hero" id="mc-hero">
+      <div class="mc-hero-poster" id="mc-poster-bg"></div>
+      <div class="mc-hero-content">
+        <div class="mc-hero-topbar">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select class="mc-filter-select" id="mc-period-sel" aria-label="Période">
+              <option value="all">Depuis le début</option>
+            </select>
+          </div>
+        </div>
+        <div class="mc-hero-stats">
+          <div class="mc-hstat">
+            <div class="mc-hstat-num" id="mc-h-films">—</div>
+            <div class="mc-hstat-label">films vus</div>
+            <div class="mc-hstat-yoy" id="mc-yoy-films"></div>
+          </div>
+          <div class="mc-hstat">
+            <div class="mc-hstat-num" id="mc-h-hours">—</div>
+            <div class="mc-hstat-label">heures de ciné</div>
+          </div>
+          <div class="mc-hstat">
+            <div class="mc-hstat-num" id="mc-h-fav">—</div>
+            <div class="mc-hstat-label">coups de cœur</div>
+            <div class="mc-hstat-yoy" id="mc-yoy-fav"></div>
+          </div>
+          <div class="mc-hstat">
+            <div class="mc-hstat-num" id="mc-h-cap">—</div>
+            <div class="mc-hstat-label">Capucines</div>
+            <div class="mc-hstat-yoy" id="mc-yoy-cap"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAPE STRIP -->
+    <div class="mc-tape-wrap" id="mc-tape-wrap">
+      <div class="mc-tape-header">
+        <div class="mc-tape-title" id="mc-tape-title">Derniers films notés</div>
+      </div>
+      <div class="mc-tape-scroller">
+        <div class="mc-tape-track" id="mc-tape-track"></div>
+      </div>
+    </div>
+
+    <!-- ZONE 2: MAIN STAGE -->
+    <div class="mc-stage">
+      <div class="mc-card mc-chart-card">
+        <div class="mc-card-title">Films vus</div>
+        <div class="mc-toggle-row">
+          <button class="mc-toggle-btn active" data-mode="cumulative">Cumulé</button>
+          <button class="mc-toggle-btn" data-mode="monthly">Par mois</button>
+        </div>
+        <div id="mc-line-wrap" style="width:100%;overflow:hidden">
+          <svg id="mc-line-chart" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block"></svg>
+        </div>
+        <div id="mc-line-legend" class="mc-legend"></div>
+      </div>
+
+      <div class="mc-card">
+        <div class="mc-card-title">Note moyenne</div>
+        <div class="mc-gauge-wrap">
+          <div style="position:relative;display:inline-block">
+            <svg class="mc-gauge-svg" viewBox="0 0 200 200">
+              <path id="mc-gauge-track" d="" fill="none" stroke-width="12" stroke-linecap="round"/>
+              <path id="mc-gauge-fill"  d="" fill="none" stroke="url(#mc-gauge-grad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="0 1000" style="transition:stroke-dasharray 1.2s cubic-bezier(.22,1,.36,1)"/>
+              <circle id="mc-gauge-dot" cx="100" cy="30" r="5" fill="#fff" style="transition:transform 1.2s cubic-bezier(.22,1,.36,1);transform-origin:100px 100px"/>
+              <defs>
+                <linearGradient id="mc-gauge-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%"   stop-color="var(--theme-success)"/>
+                  <stop offset="50%"  stop-color="var(--theme-primary)"/>
+                  <stop offset="100%" stop-color="var(--theme-error)"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="mc-gauge-center" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:28px">
+              <div class="mc-gauge-value" id="mc-gauge-val">—</div>
+              <div class="mc-gauge-sub">/ 5 étoiles</div>
+            </div>
+          </div>
+          <div class="mc-rating-bars" id="mc-rating-bars"></div>
+        </div>
+      </div>
+
+      <div class="mc-card">
+        <div class="mc-card-title">Séance type</div>
+        <div style="display:flex;flex-direction:column;gap:16px;padding-top:4px">
+          <div style="text-align:center">
+            <div style="font-family:var(--mc-font-display);font-size:44px;font-weight:800;color:var(--mc-text);line-height:1;letter-spacing:-.02em" id="mc-avg-dur">—</div>
+            <div style="font-size:11px;color:var(--mc-text-dim);letter-spacing:.5px;margin-top:4px">durée moyenne</div>
+            <div class="mc-hstat-yoy" id="mc-yoy-dur" style="position:static;display:inline-block;margin-top:6px"></div>
+          </div>
+          <div class="mc-divider"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center">
+            <div>
+              <div style="font-family:var(--mc-font-display);font-size:24px;font-weight:800;color:var(--mc-text);letter-spacing:-.01em" id="mc-extras-val">—</div>
+              <div style="font-size:10px;color:var(--mc-text-dim);margin-top:2px">de supplément (pop-corn, techno, etc.)</div>
+              <div class="mc-hstat-yoy" id="mc-yoy-ext" style="position:static;display:inline-block;margin-top:4px"></div>
+            </div>
+            <div>
+              <div style="font-family:var(--mc-font-display);font-size:24px;font-weight:800;color:var(--mc-text);letter-spacing:-.01em" id="mc-room-val">—</div>
+              <div style="font-size:10px;color:var(--mc-text-dim);margin-top:2px" id="mc-room-lbl">salle fav.</div>
+            </div>
+          </div>
+          <div class="mc-divider"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center">
+            <div>
+              <div style="font-family:var(--mc-font-display);font-size:20px;font-weight:800;color:var(--mc-text);letter-spacing:-.01em" id="mc-seat-val">—</div>
+              <div style="font-size:10px;color:var(--mc-text-dim);margin-top:2px" id="mc-seat-lbl">place fav.</div>
+            </div>
+            <div id="mc-record-mini">
+              <div style="font-family:var(--mc-font-display);font-size:24px;font-weight:800;color:var(--mc-text);letter-spacing:-.01em" id="mc-record-num">—</div>
+              <div style="font-size:10px;color:var(--mc-text-dim);margin-top:2px">record/jour</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ZONE 3: SUPPORTING CAST -->
+    <div class="mc-support">
+      <div class="mc-card">
+        <div class="mc-card-title">Genres</div>
+        <div class="mc-genre-list" id="mc-genre-list"></div>
+      </div>
+      <div class="mc-card">
+        <div class="mc-card-title">Langues</div>
+        <div class="mc-lang-grid" id="mc-lang-grid"></div>
+      </div>
+      <div class="mc-card mc-streak-card" style="padding:0">
+        <div class="mc-streak-head">
+          <span class="mc-streak-head-title">Série de semaines</span>
+          <span class="mc-streak-flame">🔥</span>
+        </div>
+        <div class="mc-streak-body">
+          <div class="mc-streak-item">
+            <div class="mc-streak-lbl-top">En cours</div>
+            <div class="mc-streak-num" id="mc-streak-cur">0</div>
+            <div class="mc-streak-unit" id="mc-streak-cur-unit">semaine</div>
+            <div class="mc-streak-date" id="mc-streak-deadline"></div>
+          </div>
+          <div class="mc-streak-item">
+            <div class="mc-streak-lbl-top">Record</div>
+            <div class="mc-streak-num" id="mc-streak-max">0</div>
+            <div class="mc-streak-unit">semaines</div>
+            <div class="mc-streak-date" id="mc-streak-max-date"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ZONE 4: CINÉASTE ID CARD (flip) -->
+    <div style="padding: 0 12px; margin-bottom: 18px;">
+      <div id="mc-id-card-wrap"></div>
+    </div>
+
+  </div>
+  <div class="mc-bottom-pad"></div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   MISSION CONTROL — JavaScript
+   ════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+const MC_RATING_SCALE = (function () {
+  try {
+    return parseInt((typeof USER_PREFERENCES !== 'undefined' ? USER_PREFERENCES : {}).ratingScale) === 10 ? 10 : 5;
+  } catch (e) { return 5; }
+})();
+
+  let _stats   = null;
+  let _profile = null;
+  let _mode    = 'cumulative';
+
+  const PALETTE = ['#F5C842','#FF8C42','#00CED1','#FF6B6B','#A8E063','#C3A6FF','#FF9ECD','#4ECDC4'];
+
+  function getAccentColor () {
+    return getComputedStyle(document.documentElement).getPropertyValue('--theme-primary').trim() || PALETTE[0];
+  }
+
+  function initDashboard () {
+    const root = document.getElementById('dashboard-page');
+    if (!root || !root.classList.contains('active')) return;
+    loadDash('all', null);
+  }
+  window.loadDashboard = initDashboard;
+
+  function loadDash (filterType, filterValue) {
+    showSkeleton(true);
+    google.script.run
+      .withSuccessHandler(function (stats) {
+        _stats = stats;
+        google.script.run
+          .withSuccessHandler(function (profile) {
+            _profile = profile;
+            showSkeleton(false);
+            buildFilterUI(filterType, filterValue);
+            renderAll(filterType, filterValue);
+          })
+          .withFailureHandler(function () {
+            _profile = null;
+            showSkeleton(false);
+            buildFilterUI(filterType, filterValue);
+            renderAll(filterType, filterValue);
+          })
+          .getMovieProfile(filterType, filterValue);
+      })
+      .withFailureHandler(function (err) {
+        console.error('Dashboard error:', err);
+        showSkeleton(false);
+      })
+      .getDashboardStats(filterType, filterValue);
+  }
+
+  function showSkeleton (show) {
+    const sk  = document.getElementById('mc-skeleton');
+    const cnt = document.getElementById('mc-content');
+    if (!sk || !cnt) return;
+    sk.style.display  = show ? 'flex' : 'none';
+    cnt.style.display = show ? 'none' : 'block';
+  }
+
+  function buildFilterUI (activeType, activeValue) {
+    if (!_stats) return;
+    const sel = document.getElementById('mc-period-sel');
+    if (!sel) return;
+    const years  = (_stats.availableYears  || []).slice().sort((a, b) => b - a);
+    const months = (_stats.availableMonths || []).slice().sort((a, b) => b.localeCompare(a));
+    sel.innerHTML = '<option value="all">Depuis le début</option>';
+    years.forEach(yr => {
+      const yOpt = document.createElement('option');
+      yOpt.value = 'year:' + yr; yOpt.textContent = '── ' + yr + ' ──';
+      sel.appendChild(yOpt);
+      months.filter(m => m.startsWith(yr + '-')).forEach(m => {
+        const [, mo] = m.split('-');
+        const mOpt = document.createElement('option');
+        mOpt.value = 'month:' + m; mOpt.textContent = '  ' + mcMonthName(parseInt(mo));
+        sel.appendChild(mOpt);
+      });
+    });
+    if (activeType === 'all')   sel.value = 'all';
+    if (activeType === 'year')  sel.value = 'year:'  + activeValue;
+    if (activeType === 'month') sel.value = 'month:' + activeValue;
+    sel.onchange = function () {
+      const v = this.value;
+      if (v === 'all') { loadDash('all', null); }
+      else { const [type, val] = v.split(':'); loadDash(type, val); }
+    };
+  }
+
+  function renderAll (filterType, filterValue) {
+    if (!_stats) return;
+    renderHero();
+    renderLineChart(filterType, filterValue);
+    renderGauge();
+    renderRatingBars();
+    renderSeanceCard();
+    renderGenres();
+    renderLanguages();
+    renderStreak();
+    renderProfile(filterType);
+    setupToggle(filterType, filterValue);
+  }
+
+  function renderHero () {
+    const s = _stats;
+    animTo('mc-h-films', s.totalFilms, 0);
+    animTo('mc-h-hours', s.totalCinemaHours, 1);
+    animTo('mc-h-fav',   s.favoriteCount, 0);
+    animTo('mc-h-cap',   s.capucinesCount, 0);
+    setYoY('mc-yoy-films', s.yoyComparison?.films,     ' films', false);
+    setYoY('mc-yoy-fav',   s.yoyComparison?.favoris,   ' films', false);
+    setYoY('mc-yoy-cap',   s.yoyComparison?.capucines, ' films', false);
+    fetchMoviesForHeroAndTape();
+  }
+
+  function fetchMoviesForHeroAndTape () {
+    if (typeof google === 'undefined' || !google.script) return;
+    google.script.run
+      .withSuccessHandler(function (movies) {
+        if (!movies || !movies.length) { const w = document.getElementById('mc-tape-wrap'); if (w) w.style.display = 'none'; return; }
+        const withPoster = movies.filter(function (m) { return m.affiche; });
+        if (withPoster.length) setPosterFromUrl(withPoster[0].affiche, withPoster[0].titre);
+        renderTapeStrip(movies);
+      })
+      .withFailureHandler(function () { const w = document.getElementById('mc-tape-wrap'); if (w) w.style.display = 'none'; })
+      .getDashboardPosters(8);
+  }
+
+  function setPosterFromUrl (url) {
+    const bg = document.getElementById('mc-poster-bg');
+    if (!bg || !url) return;
+    const img = new Image();
+    img.onload = function () {
+      bg.style.backgroundImage = `url('${url}')`;
+      bg.style.opacity = '0';
+      bg.style.transition = 'opacity 1.6s ease';
+      requestAnimationFrame(() => { bg.style.opacity = '1'; });
+    };
+    img.src = url;
+  }
+
+  function renderTapeStrip (movies) {
+    const track   = document.getElementById('mc-tape-track');
+    const titleEl = document.getElementById('mc-tape-title');
+    const wrap    = document.getElementById('mc-tape-wrap');
+    if (!track) return;
+    if (!movies || !movies.length) { if (wrap) wrap.style.display = 'none'; return; }
+    if (titleEl) {
+      const n = movies.length;
+      titleEl.textContent = `Tes ${n} dernier${n > 1 ? 's' : ''} film${n > 1 ? 's' : ''} noté${n > 1 ? 's' : ''}`;
+    }
+    track.innerHTML = movies.map(function (m) {
+      const safe    = (m.titre || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;').substring(0, 40);
+      const note    = parseFloat(m.note) || 0;
+      const noteStr = note > 0 ? (note % 1 === 0 ? String(note) : note.toFixed(1)) : '';
+      const heart   = m.coupDeCoeur ? '<div class="mc-tape-heart">❤️</div>' : '';
+      const rating  = noteStr ? `<div class="mc-tape-rating">★ ${noteStr}</div>` : '';
+      const overlay = `<div class="mc-tape-overlay">${safe}</div>`;
+      if (m.affiche) {
+        return `<div class="mc-tape-item"><div class="mc-tape-img"><img src="${m.affiche}" alt="${safe}" loading="lazy">${heart}${overlay}</div>${rating}</div>`;
+      }
+      return `<div class="mc-tape-item no-poster"><div class="mc-tape-img">🎬${heart}${overlay}</div>${rating}</div>`;
+    }).join('');
+  }
+
+  function renderLineChart (filterType, filterValue) {
+    const svg = document.getElementById('mc-line-chart');
+    const leg = document.getElementById('mc-line-legend');
+    if (!svg || !_stats?.monthlyData) return;
+    const W = 800, H = 200;
+    const pad = { top: 20, right: 30, bottom: 36, left: 42 };
+    const cW = W - pad.left - pad.right;
+    const cH = H - pad.top  - pad.bottom;
+    const MONTHS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+    if (filterType === 'month') {
+      svg.innerHTML = `<text x="${W/2}" y="${H/2}" fill="rgba(255,255,255,.35)" font-size="13" text-anchor="middle" dominant-baseline="middle" font-family="Inter, sans-serif">Graphique non disponible pour le filtre mensuel</text>`;
+      leg.innerHTML = ''; return;
+    }
+    let years = filterType === 'year' && filterValue ? [filterValue] : Object.keys(_stats.monthlyData).sort();
+    const today = new Date(), thisYear = today.getFullYear(), thisMo = today.getMonth();
+    const chartData = {}; let maxVal = 0;
+    const accent = getAccentColor();
+    const palette = [accent, ...PALETTE.filter(c => c !== accent)];
+    years.forEach(yr => {
+      if (!_stats.monthlyData[yr]) return;
+      const raw = _stats.monthlyData[yr];
+      const arr = _mode === 'cumulative' ? cumulate(raw) : raw;
+      chartData[yr] = arr;
+      const lastIdx = parseInt(yr) === thisYear ? thisMo : 11;
+      const yMax = Math.max(...arr.slice(0, lastIdx + 1));
+      if (yMax > maxVal) maxVal = yMax;
+    });
+    if (maxVal === 0) {
+      svg.innerHTML = `<text x="${W/2}" y="${H/2}" fill="rgba(255,255,255,.35)" font-size="13" text-anchor="middle" dominant-baseline="middle" font-family="Inter, sans-serif">Aucune donnée</text>`;
+      leg.innerHTML = ''; return;
+    }
+    svg.innerHTML = '';
+    const defs = svgEl('defs');
+    years.forEach((yr, i) => {
+      const col = palette[i % palette.length];
+      const gr = svgEl('linearGradient');
+      gr.setAttribute('id', `mc-area-grad-${yr}`); gr.setAttribute('x1','0'); gr.setAttribute('y1','0'); gr.setAttribute('x2','0'); gr.setAttribute('y2','1');
+      const s1 = svgEl('stop'); s1.setAttribute('offset','0%'); s1.setAttribute('stop-color',col); s1.setAttribute('stop-opacity','0.28');
+      const s2 = svgEl('stop'); s2.setAttribute('offset','100%'); s2.setAttribute('stop-color',col); s2.setAttribute('stop-opacity','0.00');
+      gr.appendChild(s1); gr.appendChild(s2); defs.appendChild(gr);
+    });
+    svg.appendChild(defs);
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.top + (cH / 4) * i, val = Math.round(maxVal * (1 - i / 4));
+      const gl = svgEl('line'); gl.setAttribute('x1', pad.left); gl.setAttribute('y1', y); gl.setAttribute('x2', W - pad.right); gl.setAttribute('y2', y); gl.setAttribute('stroke','rgba(255,255,255,.06)'); gl.setAttribute('stroke-width','1'); svg.appendChild(gl);
+      const txt = svgEl('text'); txt.setAttribute('x', pad.left - 8); txt.setAttribute('y', y + 4); txt.setAttribute('fill','rgba(255,255,255,.30)'); txt.setAttribute('font-size','10'); txt.setAttribute('text-anchor','end'); txt.setAttribute('font-family','Inter, sans-serif'); txt.textContent = val; svg.appendChild(txt);
+    }
+    MONTHS.forEach((m, i) => {
+      const x = pad.left + (cW / 11) * i;
+      const t = svgEl('text'); t.setAttribute('x', x); t.setAttribute('y', H - pad.bottom + 18); t.setAttribute('fill','rgba(255,255,255,.30)'); t.setAttribute('font-size','10'); t.setAttribute('text-anchor','middle'); t.setAttribute('font-family','Inter, sans-serif'); t.textContent = m; svg.appendChild(t);
+    });
+    let legHTML = '';
+    years.forEach((yr, i) => {
+      const arr = chartData[yr]; if (!arr) return;
+      const col = palette[i % palette.length], isThis = parseInt(yr) === thisYear, lastMo = isThis ? thisMo : 11;
+      let lastIdx = lastMo;
+      for (let j = lastMo; j >= 0; j--) { if (arr[j] > 0 || (_mode === 'cumulative' && j > 0 && arr[j-1] > 0)) { lastIdx = j; break; } if (j === 0) lastIdx = -1; }
+      if (lastIdx < 0) return;
+      const pts = [];
+      for (let j = 0; j <= lastIdx; j++) { const x = pad.left + (cW / 11) * j, y = pad.top + cH - (arr[j] / maxVal) * cH; pts.push([x, y]); }
+      function catmullRomToBezier (points) {
+        if (points.length < 2) return '';
+        const tension = 0.38; let d = `M ${points[0][0]} ${points[0][1]}`;
+        for (let k = 0; k < points.length - 1; k++) {
+          const p0 = points[Math.max(0, k - 1)], p1 = points[k], p2 = points[k + 1], p3 = points[Math.min(points.length - 1, k + 2)];
+          const cp1x = p1[0] + (p2[0] - p0[0]) * tension, cp1y = p1[1] + (p2[1] - p0[1]) * tension;
+          const cp2x = p2[0] - (p3[0] - p1[0]) * tension, cp2y = p2[1] - (p3[1] - p1[1]) * tension;
+          d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2[0]} ${p2[1]}`;
+        }
+        return d;
+      }
+      const splineD = catmullRomToBezier(pts);
+      const aPath = svgEl('path'), fp = pts[0], lp = pts[pts.length - 1];
+      function buildAreaPath (spline, fpx, lp, base) { const inner = spline.substring(spline.indexOf(' ') + 1); return `M ${fpx[0]} ${base} L ${inner} L ${lp[0]} ${base} Z`; }
+      aPath.setAttribute('d', buildAreaPath(splineD, fp, lp, H - pad.bottom)); aPath.setAttribute('fill', `url(#mc-area-grad-${yr})`); svg.appendChild(aPath);
+      const lPath = svgEl('path'); lPath.setAttribute('d', splineD); lPath.setAttribute('fill','none'); lPath.setAttribute('stroke', col); lPath.setAttribute('stroke-width','2.2'); lPath.setAttribute('stroke-linecap','round'); lPath.setAttribute('stroke-linejoin','round');
+      const pathLen = lPath.getTotalLength ? lPath.getTotalLength() : 800;
+      lPath.setAttribute('stroke-dasharray', pathLen); lPath.setAttribute('stroke-dashoffset', pathLen);
+      lPath.style.transition = `stroke-dashoffset 1.4s cubic-bezier(.22,1,.36,1) ${i * 0.18}s`;
+      svg.appendChild(lPath);
+      requestAnimationFrame(() => { lPath.setAttribute('stroke-dashoffset','0'); });
+      pts.forEach(([x, y]) => { const c = svgEl('circle'); c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r','3'); c.setAttribute('fill', col); c.setAttribute('stroke', 'rgba(0,0,0,.5)'); c.setAttribute('stroke-width', '1.5'); svg.appendChild(c); });
+      legHTML += `<div class="mc-legend-item"><div class="mc-legend-dot" style="background:${col}"></div>${yr}</div>`;
+    });
+    leg.innerHTML = legHTML;
+  }
+
+  function renderGauge () {
+  const avg = _stats.averageRating || 0;
+  const el  = document.getElementById('mc-gauge-val');
+  if (el) el.textContent = avg.toFixed(1).replace('.', ',');
+
+  // Update the "/ N étoiles" label dynamically
+  const subEl = document.querySelector('.mc-gauge-sub');
+  if (subEl) subEl.textContent = `/ ${MC_RATING_SCALE} étoiles`;
+
+  const R = 78, CX = 100, CY = 100, startDeg = 135, endDeg = 405, totalDeg = 270;
+  function polar (cx, cy, r, deg) { const rad = (deg - 90) * Math.PI / 180; return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)]; }
+  function arcPath (d1, d2) { const [x1, y1] = polar(CX, CY, R, d1), [x2, y2] = polar(CX, CY, R, d2), large = (d2 - d1) > 180 ? 1 : 0; return `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2}`; }
+  const trackEl = document.getElementById('mc-gauge-track'), fillEl = document.getElementById('mc-gauge-fill'), dotEl = document.getElementById('mc-gauge-dot');
+  if (!trackEl || !fillEl) return;
+  trackEl.setAttribute('d', arcPath(startDeg, endDeg)); trackEl.setAttribute('stroke', 'rgba(255,255,255,.08)');
+
+  // Use MC_RATING_SCALE as the max instead of hardcoded 5
+  const frac = Math.min(1, avg / MC_RATING_SCALE), filledDeg = startDeg + frac * totalDeg;
+  fillEl.setAttribute('d', arcPath(startDeg, filledDeg));
+  const circumference = Math.PI * 2 * R, arcLen = (totalDeg / 360) * circumference, filled = frac * arcLen;
+  fillEl.setAttribute('stroke-dasharray', `0 ${circumference}`);
+  requestAnimationFrame(() => { fillEl.style.transition = 'stroke-dasharray 1.4s cubic-bezier(.22,1,.36,1)'; fillEl.setAttribute('stroke-dasharray', `${filled} ${circumference}`); });
+  if (dotEl) { const [dx, dy] = polar(CX, CY, R, filledDeg); dotEl.setAttribute('cx', dx); dotEl.setAttribute('cy', dy); }
+}
+
+  function renderRatingBars () {
+  const container = document.getElementById('mc-rating-bars');
+  if (!container || !_stats?.ratingDistribution) return;
+  const dist = _stats.ratingDistribution, max = Math.max(1, ...Object.values(dist));
+  let html = '';
+  for (let i = MC_RATING_SCALE; i >= 1; i--) {
+    const count = dist[i] || 0, w = Math.round((count / max) * 100);
+    html += `<div class="mc-rbar-row"><div class="mc-rbar-label">★${i}</div><div class="mc-rbar-track"><div class="mc-rbar-fill" data-w="${w}" style="width:0%"></div></div><div class="mc-rbar-count">${count}</div></div>`;
+  }
+  container.innerHTML = html;
+  requestAnimationFrame(() => { container.querySelectorAll('.mc-rbar-fill').forEach((el, idx) => { setTimeout(() => { el.style.width = el.getAttribute('data-w') + '%'; }, idx * 80); }); });
+}
+
+  function renderSeanceCard () {
+    const s = _stats, yoy = s.yoyComparison || {};
+    const avgMin = s.averageDuration || 0;
+    const durEl = document.getElementById('mc-avg-dur');
+    if (durEl) durEl.textContent = avgMin ? `${Math.floor(avgMin/60)}h${String(avgMin % 60).padStart(2,'0')}` : '—';
+    setYoY('mc-yoy-dur', yoy.duration, 'min', false);
+    const extEl = document.getElementById('mc-extras-val');
+    if (extEl) extEl.textContent = parseFloat(s.totalExtrasSpent || 0).toFixed(1) + '€';
+    setYoY('mc-yoy-ext', yoy.extras, '€', true);
+    const roomEl = document.getElementById('mc-room-val'), roomLbl = document.getElementById('mc-room-lbl');
+    if (roomEl && s.favRoom) { roomEl.textContent = 'Salle ' + (s.favRoom.name || '').replace(/^salle\s*/i, ''); if (roomLbl) roomLbl.textContent = s.favRoom.share + '% des séances'; } else if (roomEl) { roomEl.textContent = '—'; }
+    const seatEl = document.getElementById('mc-seat-val'), seatLbl = document.getElementById('mc-seat-lbl');
+    if (seatEl && s.favSeat) { seatEl.textContent = 'Place ' + (s.favSeat.name || '').replace(/^place\s*/i, ''); if (seatLbl) seatLbl.textContent = s.favSeat.share + '% des séances'; } else if (seatEl) { seatEl.textContent = '—'; }
+    const recEl = document.getElementById('mc-record-num');
+    if (recEl) recEl.textContent = s.dailyRecord?.count > 1 ? s.dailyRecord.count : '—';
+  }
+
+  function renderGenres () {
+    const container = document.getElementById('mc-genre-list');
+    if (!container || !_stats?.genreDistribution) return;
+    const entries = Object.entries(_stats.genreDistribution).sort((a, b) => b[1] - a[1]).slice(0, 7);
+    const max = Math.max(1, entries[0]?.[1] || 1), total = Object.values(_stats.genreDistribution).reduce((a, b) => a + b, 0) || 1;
+    const accent = getAccentColor(), palette = [accent, ...PALETTE.filter(c => c !== accent)];
+    let html = '';
+    entries.forEach(([g, n], i) => {
+      const w = Math.round((n / max) * 100), pct = Math.round((n / total) * 100), col = palette[i % palette.length];
+      html += `<div class="mc-genre-row"><div class="mc-genre-meta"><div class="mc-genre-name">${g}</div><div class="mc-genre-pct">${pct}%</div></div><div class="mc-genre-track"><div class="mc-genre-fill" data-w="${w}" style="width:0%;background:${col}"></div></div></div>`;
+    });
+    container.innerHTML = html;
+    requestAnimationFrame(() => { container.querySelectorAll('.mc-genre-fill').forEach((el, i) => { setTimeout(() => { el.style.width = el.getAttribute('data-w') + '%'; }, i * 65); }); });
+  }
+
+  function renderLanguages () {
+    const container = document.getElementById('mc-lang-grid');
+    if (!container || !_stats?.languageDistribution) return;
+    const entries = Object.entries(_stats.languageDistribution).sort((a, b) => b[1] - a[1]);
+    const total = entries.reduce((s, [, n]) => s + n, 0) || 1, max = entries[0]?.[1] || 1;
+    const accent = getAccentColor(), palette = [accent, ...PALETTE.filter(c => c !== accent)];
+    let html = '';
+    entries.forEach(([lang, n], i) => {
+      const col = palette[i % palette.length], pct = Math.round((n / total) * 100), frac = n / max;
+      const size = Math.round(50 + frac * 38), fs = Math.round(11 + frac * 6);
+      html += `<div class="mc-lang-bubble" style="width:${size}px;height:${size}px;border-color:${col};background:${hexToRgba(col,.10)};color:${col};" title="${lang}: ${pct}%"><div class="mc-lang-code" style="font-size:${fs}px">${lang}</div><div class="mc-lang-pct">${pct}%</div></div>`;
+    });
+    container.innerHTML = html;
+  }
+
+  function renderStreak () {
+    const sd = _stats?.streakData || {}, cur = sd.currentStreak || 0, max = sd.longestStreak || 0;
+    animTo('mc-streak-cur', cur, 0); animTo('mc-streak-max', max, 0);
+    const unitEl = document.getElementById('mc-streak-cur-unit');
+    if (unitEl) unitEl.textContent = cur <= 1 ? 'semaine' : 'semaines';
+    const deadlineEl = document.getElementById('mc-streak-deadline');
+    if (deadlineEl && sd.nextDeadline) {
+      const parts = sd.nextDeadline.split('/'), dl = new Date(parts[2], parts[1]-1, parts[0]), diff = Math.ceil((dl - new Date()) / 86400000);
+      deadlineEl.textContent = diff <= 2 ? `⚠︎ expire le ${sd.nextDeadline}` : `expire le ${sd.nextDeadline}`;
+      deadlineEl.className = 'mc-streak-date' + (diff <= 2 ? ' urgent' : '');
+    } else if (deadlineEl) { deadlineEl.textContent = cur > 0 ? '' : 'Aucune série'; deadlineEl.className = 'mc-streak-date'; }
+    const maxDateEl = document.getElementById('mc-streak-max-date');
+    if (maxDateEl) maxDateEl.textContent = sd.longestStreakEnd ? `fin le ${sd.longestStreakEnd}` : 'À établir';
+  }
+
+  function renderProfile (filterType) {
+    window._mcDashStats = _stats;
+    if (window.renderIDCard) window.renderIDCard(filterType);
+  }
+
+  function setupToggle (filterType, filterValue) {
+    document.querySelectorAll('.mc-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.mc-toggle-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active'); _mode = this.dataset.mode;
+        renderLineChart(filterType, filterValue);
+      });
+    });
+  }
+
+  function animTo (id, target, decimals) {
+    const el = document.getElementById(id); if (!el) return;
+    const n = parseFloat(target) || 0, inc = n / (1200 / 16); let cur = 0;
+    const t = setInterval(() => { cur += inc; if (cur >= n) { cur = n; clearInterval(t); } el.textContent = decimals > 0 ? cur.toFixed(decimals) : Math.floor(cur); }, 16);
+  }
+
+  function setYoY (id, val, unit, invert) {
+    const el = document.getElementById(id);
+    if (!el || val === null || val === undefined || val === 0) { if (el) el.textContent = ''; return; }
+    const isUp = val > 0, cls = invert ? (isUp ? 'inv-up' : 'inv-down') : (isUp ? 'up' : 'down'), sym = isUp ? '+' : '';
+    el.className = 'mc-hstat-yoy ' + cls;
+    el.textContent = sym + Math.abs(val).toFixed(val % 1 !== 0 ? 1 : 0) + unit;
+  }
+
+  function cumulate (arr) { let s = 0; return arr.map(v => { s += v; return s; }); }
+  function svgEl (tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+  function hexToRgba (hex, alpha) { const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${alpha})`; }
+  function mcMonthName (n) { return ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][n-1] || ''; }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const dash = document.getElementById('dashboard-page');
+    if (dash && dash.classList.contains('active')) initDashboard();
+  });
+})();
+
+
+/* ════════════════════════════════════════════════════════════════
+   CINÉASTE ID CARD — IIFE with flip + radar verso
+   ════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  const ID_RATING_SCALE = (function () {
+  try {
+    return parseInt((typeof USER_PREFERENCES !== 'undefined' ? USER_PREFERENCES : {}).ratingScale) === 10 ? 10 : 5;
+  } catch (e) { return 5; }
+})();
+
+  /* ── Persona data ── */
+  const GENRE_IDENTITIES = [
+    { key: 'dramaturge',  label: 'Dramaturge',  emoji: '🎭', genres: ['drame', 'drama'] },
+    { key: 'bouffon',     label: 'Bouffon',     emoji: '😂', genres: ['comédie', 'comedie', 'comedy'] },
+    { key: 'traqueur',    label: 'Traqueur',    emoji: '🔪', genres: ['thriller', 'horreur', 'horror'] },
+    { key: 'visionnaire', label: 'Visionnaire', emoji: '🚀', genres: ['science-fiction', 'sci-fi', 'fantastique', 'fantasy'] },
+    { key: 'agitateur',   label: 'Agitateur',   emoji: '💥', genres: ['action', 'aventure', 'adventure'] },
+    { key: 'romantique',  label: 'Romantique',  emoji: '🌹', genres: ['romance', 'romantique'] },
+    { key: 'omnivore',    label: 'Omnivore',    emoji: '🎬', genres: [] },
+  ];
+
+  // Inside computePersona — replace the BEHAVIOR_TYPES tests that use hardcoded thresholds:
+const BEHAVIOR_TYPES = [
+  { key: 'critique',   label: 'Critique',   desc: 'Difficile à convaincre',    test: s => s.avgRating < (ID_RATING_SCALE * 0.56) },
+  { key: 'passionne',  label: 'Passionné',  desc: 'Coup de cœur facile',       test: s => s.favRate > 0.22 },
+  { key: 'boulimique', label: 'Boulimique', desc: 'Insatiable',                test: s => { if (s.filterType === 'month') return s.total > 8; if (s.filterType === 'year') return s.total > 50; return s.total > 80; } },
+  { key: 'regulier',   label: 'Régulier',   desc: 'Présent chaque semaine',    test: s => { if (s.filterType === 'month') return false; return (s.currentStreak >= 4 || s.longestStreak >= 8); } },
+  { key: 'selectif',   label: 'Sélectif',   desc: 'La qualité avant tout',     test: s => s.avgRating >= (ID_RATING_SCALE * 0.76) },
+  { key: 'spectateur', label: 'Spectateur', desc: 'Le cinéphile du quotidien', test: () => true },
+];
+
+  const MODIFIERS = [
+    { key: 'monde',       emoji: '🌍', label: 'Ciné du Monde', test: s => s.vostRate > 0.25 },
+    { key: 'capucinier',  emoji: '🌸', label: 'Capucinier',    test: s => s.capucinesCount >= 2 },
+    { key: 'marathon',    emoji: '🏆', label: 'Marathon Man',  test: s => s.dailyRecord >= 3 },
+    { key: 'toutterrain', emoji: '🎰', label: 'Tout-terrain',  test: s => s.genreDiversity >= 5 },
+  ];
+
+  const RADAR_DIMS = [
+  {
+    key: 'aventureux', label: 'Aventureux', icon: '🧭',
+    desc: 'Diversité de genres',
+    score: s => Math.min(100, Math.max(0, Math.round((s.genreDiversity / 7) * 100)))
+  },
+  {
+    key: 'selectif', label: 'Sélectif', icon: '🎯',
+    desc: 'Exigence sur les notes',
+    score: s => Math.min(100, Math.max(0, Math.round(((s.avgRating - (ID_RATING_SCALE * 0.2)) / (ID_RATING_SCALE * 0.8)) * 100)))
+  },
+  {
+    key: 'fidele', label: 'Fidèle', icon: '🔁',
+    desc: 'Loyauté à un genre',
+    score: s => Math.min(100, Math.max(0, Math.round(s.topGenreShare * 100)))
+  },
+  {
+    key: 'genereux', label: 'Généreux', icon: '❤️',
+    desc: 'Coups de cœur',
+    score: s => Math.min(100, Math.max(0, Math.round((s.favRate / 0.20) * 100)))
+  },
+  {
+    key: 'eclectique', label: 'Éclectique', icon: '🌍',
+    desc: 'Ouverture aux VO',
+    score: s => Math.min(100, Math.max(0, Math.round(s.vostRate * 100)))
+  },
+];
+
+  /* ════════════════════════════
+     COMPUTE
+  ════════════════════════════ */
+  function computePersona (stats, filterType) {
+    const total          = stats.totalFilms || 0;
+    const avgRating      = stats.averageRating || 0;
+    const favRate        = total > 0 ? (stats.favoriteCount || 0) / total : 0;
+    const capucinesCount = stats.capucinesCount || 0;
+    const dailyRecord    = stats.dailyRecord?.count || 0;
+
+    const langDist  = stats.languageDistribution || {};
+    const totalLang = Object.values(langDist).reduce((a, b) => a + b, 0) || 1;
+    const vostCount = Object.entries(langDist)
+      .filter(([k]) => k !== 'FRA' && k !== 'VF')
+      .reduce((a, [, v]) => a + v, 0);
+    const vostRate = vostCount / totalLang;
+
+    const genreDist    = stats.genreDistribution || {};
+    const genrePassion = {};
+    Object.entries(genreDist).forEach(([g, count]) => {
+      genrePassion[g] = count * avgRating;
+    });
+    const totalPassion   = Object.values(genrePassion).reduce((a, b) => a + b, 0) || 1;
+    const genreDiversity = Object.values(genrePassion).filter(p => p / totalPassion > 0.08).length;
+
+    const streakData    = stats.streakData || {};
+    const currentStreak = streakData.currentStreak || 0;
+    const longestStreak = streakData.longestStreak || 0;
+
+    const passionByKey = {};
+    GENRE_IDENTITIES.forEach(gi => {
+      if (!gi.genres.length) return;
+      let score = 0;
+      Object.entries(genreDist).forEach(([g, count]) => {
+        if (gi.genres.some(kw => g.toLowerCase().includes(kw))) score += count * avgRating;
+      });
+      passionByKey[gi.key] = score;
+    });
+    const totalP = Object.values(passionByKey).reduce((a, b) => a + b, 0) || 1;
+    let topGenreKey = 'omnivore', topGenreShare = 0;
+    Object.entries(passionByKey).forEach(([key, score]) => {
+      const share = score / totalP;
+      if (share > topGenreShare) { topGenreShare = share; topGenreKey = key; }
+    });
+    if (topGenreShare < 0.35) topGenreKey = 'omnivore';
+
+    const signals = { total, avgRating, favRate, vostRate, capucinesCount, dailyRecord, genreDiversity, currentStreak, longestStreak, filterType, topGenreShare };
+
+    if (total < 3) return { soft: true, modifiers: computeModifiers(signals) };
+
+    const axis1 = GENRE_IDENTITIES.find(gi => gi.key === topGenreKey) || GENRE_IDENTITIES[6];
+    const axis2 = BEHAVIOR_TYPES.find(bt => bt.test(signals));
+    const modifiers = computeModifiers(signals);
+    const topGenreName = Object.entries(genreDist).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+    const radarScores = RADAR_DIMS.map(d => ({ ...d, value: d.score(signals) }));
+
+    return { soft: false, axis1, axis2, modifiers, topGenreName, topGenreShare, signals, radarScores };
+  }
+
+  function computeModifiers (signals) {
+    return ['monde', 'capucinier', 'marathon', 'toutterrain']
+      .map(k => MODIFIERS.find(m => m.key === k && m.test(signals)))
+      .filter(Boolean).slice(0, 2);
+  }
+
+  /* ════════════════════════════
+     TOKEN HELPERS
+     Read live CSS variable values so SVG inline styles
+     are always in sync with the active theme.
+  ════════════════════════════ */
+  function token (name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  /* ════════════════════════════
+     RADAR SVG
+     Uses CSS variables via style= attributes so they resolve
+     correctly inside the SVG even when it's inlined in HTML.
+  ════════════════════════════ */
+  function buildRadarSVG (radarScores) {
+    const N = radarScores.length;
+    const CX = 165, CY = 150, R = 100;
+    const rings = [25, 50, 75, 100];
+    const VW = 330, VH = 300;
+
+    function point (i, pct) {
+      const angle = (Math.PI * 2 / N) * i - Math.PI / 2;
+      const r = (pct / 100) * R;
+      return [CX + r * Math.cos(angle), CY + r * Math.sin(angle)];
+    }
+
+    function labelPos (i) {
+      const angle = (Math.PI * 2 / N) * i - Math.PI / 2;
+      const r = R + 22;
+      return [CX + r * Math.cos(angle), CY + r * Math.sin(angle)];
+    }
+
+    const ns = 'http://www.w3.org/2000/svg';
+
+    const ringsSVG = rings.map(pct => {
+      const pts = radarScores.map((_, i) => point(i, pct).join(',')).join(' ');
+      // Use border token so rings read on both light and dark
+      return `<polygon points="${pts}" fill="none"
+               style="stroke:var(--mc-border-strong)" stroke-width="1"/>`;
+    }).join('');
+
+    const axesSVG = radarScores.map((_, i) => {
+      const [ex, ey] = point(i, 100);
+      return `<line x1="${CX}" y1="${CY}" x2="${ex}" y2="${ey}"
+               style="stroke:var(--mc-border)" stroke-width="1"/>`;
+    }).join('');
+
+    const dataPoints = radarScores.map((d, i) => point(i, d.value).join(',')).join(' ');
+
+    const labelsSVG = radarScores.map((d, i) => {
+      const [lx, ly] = labelPos(i);
+      const anchor = lx < CX - 5 ? 'end' : lx > CX + 5 ? 'start' : 'middle';
+      return `
+        <text x="${lx}" y="${ly - 5}" text-anchor="${anchor}"
+              style="fill:var(--mc-text-dim)"
+              font-size="8" font-family="Inter, sans-serif" font-weight="700"
+              letter-spacing=".5">${d.label.toUpperCase()}</text>
+        <text x="${lx}" y="${ly + 7}" text-anchor="${anchor}"
+              style="fill:var(--mc-accent)"
+              font-size="10" font-family="Inter Alternates, Inter, sans-serif"
+              font-weight="800">${d.value}</text>`;
+    }).join('');
+
+    const dotsSVG = radarScores.map((d, i) => {
+      const [px, py] = point(i, d.value);
+      return `<circle cx="${px}" cy="${py}" r="4"
+               style="fill:var(--mc-accent);stroke:var(--mc-bg)"
+               stroke-width="1.5"/>`;
+    }).join('');
+
+    return `<svg class="mc-id-radar-svg" viewBox="0 0 ${VW} ${VH}" xmlns="${ns}">
+      <defs>
+        <linearGradient id="mc-radar-fill-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   style="stop-color:var(--mc-accent)" stop-opacity="0.35"/>
+          <stop offset="100%" style="stop-color:var(--mc-accent)" stop-opacity="0.08"/>
+        </linearGradient>
+      </defs>
+      ${ringsSVG}
+      ${axesSVG}
+      <polygon points="${dataPoints}"
+               fill="url(#mc-radar-fill-grad)"
+               style="stroke:var(--mc-accent)"
+               stroke-width="2" stroke-linejoin="round"/>
+      ${dotsSVG}
+      ${labelsSVG}
+    </svg>`;
+  }
+
+  /* ════════════════════════════
+     DIMENSION BARS
+  ════════════════════════════ */
+  const DIM_LABELS = {
+    aventureux: { left: 'Peu de genres',  right: 'Très diversifié' },
+    selectif:   { left: 'Note basse',     right: 'Note haute'      },
+    fidele:     { left: 'Tous genres',    right: 'Genre unique'    },
+    genereux:   { left: 'Peu de CDC',     right: 'Beaucoup de CDC' },
+    eclectique: { left: 'VF majoritaire', right: 'VO majoritaire'  },
+  };
+
+  function buildDimBars (radarScores) {
+    return radarScores.map(d => {
+      const deviation = d.value - 50;
+      const halfW     = Math.abs(deviation);
+      const leftPct   = deviation >= 0 ? 50 : 50 - halfW;
+      // Use CSS variables for bar colours — adapts automatically
+      const barColor  = deviation >= 0
+        ? 'var(--mc-accent)'
+        : 'var(--mc-red)';
+      const lbl = DIM_LABELS[d.key] || { left: '', right: '' };
+
+      return `
+      <div class="mc-id-dim-row">
+        <div class="mc-id-dim-icon">${d.icon}</div>
+        <div class="mc-id-dim-info">
+          <div class="mc-id-dim-label">${d.label} — ${d.desc}</div>
+          <div class="mc-id-dim-bar-wrap">
+            <div class="mc-id-dim-bar"
+                 data-left="${leftPct}"
+                 data-w="${halfW}"
+                 style="left:50%;width:0%;background:${barColor}"></div>
+          </div>
+          <div class="mc-id-dim-endpoints">
+            <span>${lbl.left}</span>
+            <span>${lbl.right}</span>
+          </div>
+        </div>
+        <div class="mc-id-dim-score">${d.value}</div>
+      </div>`;
+    }).join('');
+  }
+
+  /* ════════════════════════════
+     HELPERS
+  ════════════════════════════ */
+  function generateBarcode (seed) {
+    const heights = [6, 8, 10, 14, 18, 22, 26, 28];
+    let x = seed || 42;
+    const bars = [];
+    for (let i = 0; i < 28; i++) {
+      x = (x * 1664525 + 1013904223) & 0xffffffff;
+      bars.push(`<div class="mc-id-bar" style="height:${heights[Math.abs(x) % heights.length]}px"></div>`);
+    }
+    return bars.join('');
+  }
+
+  function generatePerfs (count) {
+    return Array(count).fill('<div class="mc-id-perf-hole"></div>').join('');
+  }
+
+  /* ════════════════════════════
+     RENDER
+  ════════════════════════════ */
+  function renderIDCard (filterType) {
+    const container = document.getElementById('mc-id-card-wrap');
+    const stats     = window._mcDashStats;
+    if (!container || !stats) return;
+
+    const persona = computePersona(stats, filterType || 'all');
+    const total   = stats.totalFilms || 0;
+
+    /* ── SOFT STATE ── */
+    if (persona.soft) {
+      const modHTML = persona.modifiers
+        .map(m => `<div class="mc-id-mod-badge"><span>${m.emoji}</span><span>${m.label}</span></div>`)
+        .join('');
+      container.innerHTML = `
+        <div class="mc-id-soft">
+          <div class="mc-id-soft-perfs">${generatePerfs(30)}</div>
+          <div class="mc-id-soft-body">
+            <div class="mc-id-soft-icon">🎟️</div>
+            <div class="mc-id-soft-title">Profil en construction</div>
+            <div class="mc-id-soft-sub">
+              Reviens après au moins 3 films pour révéler ton identité de cinéphile.
+            </div>
+            ${modHTML ? `<div class="mc-id-soft-mods">${modHTML}</div>` : ''}
+          </div>
+        </div>`;
+      return;
+    }
+
+    const { axis1, axis2, modifiers, topGenreName, signals, radarScores } = persona;
+    const serial   = 'GE-' + String(total).padStart(4, '0') + '-' + new Date().getFullYear();
+    const avgStr = (stats.averageRating || 0).toFixed(1).replace('.', ',');
+const ratingScaleLabel = ID_RATING_SCALE;
+    const favPct   = (signals.favRate * 100).toFixed(0);
+    const vostPct  = (signals.vostRate * 100).toFixed(0);
+    const langPref = parseInt(vostPct) > 30 ? 'Majorité de VO étrangère' : 'VF majoritaire';
+    const durAvg   = stats.averageDuration || 0;
+    const durStr   = durAvg ? `${Math.floor(durAvg / 60)}h${String(durAvg % 60).padStart(2, '0')}` : '—';
+    const modHTML  = modifiers
+      .map(m => `<div class="mc-id-mod-badge"><span>${m.emoji}</span><span>${m.label}</span></div>`)
+      .join('');
+    const filterLabel = { all: 'DEPUIS LE DÉBUT', year: 'SUR CETTE ANNÉE', month: 'SUR CE MOIS' }[filterType] || 'DEPUIS LE DÉBUT';
+
+    /* ── RECTO ── */
+    const rectoHTML = `
+      <div class="mc-id-card">
+        <div class="mc-id-perforations">${generatePerfs(40)}</div>
+        <div class="mc-id-body">
+          <div class="mc-id-left">
+            <div class="mc-id-emoji">${axis1.emoji}</div>
+            <div class="mc-id-axis2-badge">
+              ${axis2.label}<br>
+              <span style="font-weight:400;letter-spacing:.5px;font-size:8px;opacity:.85">${axis2.desc}</span>
+            </div>
+            ${modHTML ? `<div class="mc-id-modifiers">${modHTML}</div>` : ''}
+          </div>
+          <div class="mc-id-right">
+            <div class="mc-id-header">
+              <div class="mc-id-label-block">
+                <div class="mc-id-eyebrow">Carte cinéphile</div>
+                <div class="mc-id-persona-name">Le ${axis1.label}<br><em>${axis2.label}</em></div>
+              </div>
+              <div class="mc-id-serial">${serial}</div>
+            </div>
+            <div class="mc-id-divider"></div>
+            <div class="mc-id-fields">
+              <div class="mc-id-field">
+                <div class="mc-id-field-label">Genre de prédilection</div>
+                <div class="mc-id-field-value">${topGenreName}</div>
+              </div>
+              <div class="mc-id-field">
+                <div class="mc-id-field-label">Note moyenne</div>
+                <div class="mc-id-field-value accent">★ ${avgStr} / ${ratingScaleLabel}</div>
+              </div>
+              <div class="mc-id-field">
+                <div class="mc-id-field-label">Coups de cœur</div>
+                <div class="mc-id-field-value">${favPct}% des films</div>
+              </div>
+              <div class="mc-id-field">
+                <div class="mc-id-field-label">Langue préférée</div>
+                <div class="mc-id-field-value">${langPref}</div>
+              </div>
+              <div class="mc-id-field">
+                <div class="mc-id-field-label">Durée moyenne</div>
+                <div class="mc-id-field-value">${durStr}</div>
+              </div>
+              <div class="mc-id-field">
+                <div class="mc-id-field-label">Films au compteur</div>
+                <div class="mc-id-field-value">${total}</div>
+              </div>
+            </div>
+            <div class="mc-id-footer">
+              <div class="mc-id-barcode">${generateBarcode(total)}</div>
+              <div class="mc-id-footer-text">
+                GRAND ÉCRAN · CINÉPHILE ID<br>${filterLabel}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mc-id-perforations">${generatePerfs(40)}</div>
+      </div>`;
+
+    /* ── VERSO ── */
+    const versoHTML = `
+      <div class="mc-id-verso">
+        <div class="mc-id-verso-perfs">${generatePerfs(40)}</div>
+        <div class="mc-id-verso-body">
+          <div class="mc-id-radar-wrap">
+            ${buildRadarSVG(radarScores)}
+          </div>
+          <div class="mc-id-dims">
+            <div class="mc-id-dims-title">Profil cinéphile</div>
+            ${buildDimBars(radarScores)}
+          </div>
+        </div>
+        <div class="mc-id-verso-perfs">${generatePerfs(40)}</div>
+      </div>`;
+
+    /* ── Flip buttons ── */
+    const flipBtnFront = `<button class="mc-id-flip-btn" aria-label="Retourner la carte">Analyse</button>`;
+    const flipBtnBack  = `<button class="mc-id-flip-btn" aria-label="Retourner la carte">Identité</button>`;
+
+    /* ── Assemble ── */
+    container.innerHTML = `
+      <div class="mc-id-flip-wrap" id="mc-id-flip-wrap">
+        <div class="mc-id-flipper">
+          <div class="mc-id-face mc-id-face-front" style="position:relative">
+            ${rectoHTML}
+            ${flipBtnFront}
+          </div>
+          <div class="mc-id-face mc-id-face-back">
+            ${versoHTML}
+            ${flipBtnBack}
+          </div>
+        </div>
+      </div>`;
+
+    /* ── Fix heights ── */
+    const wrap    = document.getElementById('mc-id-flip-wrap');
+    const flipper = wrap.querySelector('.mc-id-flipper');
+    const front   = wrap.querySelector('.mc-id-face-front');
+    const back    = wrap.querySelector('.mc-id-face-back');
+
+    requestAnimationFrame(() => {
+      const h = front.scrollHeight;
+      wrap.style.height    = h + 'px';
+      flipper.style.height = h + 'px';
+      front.style.position = 'absolute';
+
+      /* Animate bars on initial render */
+      back.querySelectorAll('.mc-id-dim-bar').forEach((bar, i) => {
+        setTimeout(() => {
+          bar.style.left  = bar.getAttribute('data-left') + '%';
+          bar.style.width = bar.getAttribute('data-w')    + '%';
+        }, 800 + i * 100);
+      });
+
+      /* ── Flip interaction ── */
+      wrap.querySelectorAll('.mc-id-flip-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          const isFlipped = wrap.classList.toggle('is-flipped');
+          if (isFlipped) {
+            /* Reset then re-animate bars after flip completes */
+            back.querySelectorAll('.mc-id-dim-bar').forEach(bar => {
+              bar.style.left  = '50%';
+              bar.style.width = '0%';
+            });
+            setTimeout(() => {
+              back.querySelectorAll('.mc-id-dim-bar').forEach((bar, i) => {
+                setTimeout(() => {
+                  bar.style.left  = bar.getAttribute('data-left') + '%';
+                  bar.style.width = bar.getAttribute('data-w')    + '%';
+                }, i * 120);
+              });
+            }, 400);
+          }
+        });
+      });
+    });
+  }
+
+  window.renderIDCard = renderIDCard;
+})();
+
+(function patchChartTextColour() {
+  const target = document.getElementById('mc-line-chart');
+  if (!target) return;
+
+  // Read the theme-appropriate faint text colour
+  function getFaintColour() {
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue('--theme-text-disabled').trim()
+      || 'rgba(128,128,128,0.6)';
+  }
+
+  const observer = new MutationObserver(() => {
+    target.querySelectorAll('text[fill="rgba(255,255,255,.35)"]').forEach(el => {
+      el.setAttribute('fill', getFaintColour());
+    });
+  });
+
+  observer.observe(target, { childList: true, subtree: true });
+})();
+
+</script>
